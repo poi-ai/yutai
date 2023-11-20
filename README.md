@@ -10,7 +10,7 @@
 * auカブコム証券(在庫情報取得のみ)
 * 松井証券
 
-### 
+### Tips
 →[Tips](https://github.com/poi-ai/yutai/tree/master/TIPS.md)
 
 
