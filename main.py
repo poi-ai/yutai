@@ -17,7 +17,13 @@ class Main():
     def test(self):
         '''テスト用コード'''
         session = self.kabucom.login.login()
-        print(session)
+        if not session:
+            print('ログインエラー')
+
+        stock_data = self.kabucom.get.stock_num(session)
+        if stock_data == False:
+            print('在庫データ取得エラー')
+
 
 if __name__ == '__main__':
     main = Main()
