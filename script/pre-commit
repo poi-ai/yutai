@@ -1,0 +1,10 @@
+#!/bin/bash
+
+if git diff --cached --name-only | grep -q "config.py.bak"; then
+    echo "config.py.bak が更新されています。誤って口座情報をcommitしようとしていないか確認してください。"
+    echo "意図的にconfig.py.bakを更新したい場合は.git/hooks/pre-commitを削除してください。"
+    exit 1
+fi
+
+# 正常な場合、コミットを許可
+exit 0
