@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 
 ### みんかぶから指定した月の優待情報をまとめて取得しCSVに書き出すスクリプト ###
 ### 下記に取得したい月を入力 ###
-month = 1
+month = 2
 
 for page in range(1, 100):
     time.sleep(3)
@@ -47,7 +47,7 @@ for page in range(1, 100):
         item_name = data.find('div', class_='yutai_item w350p fwb').text
 
         # ファイルに出力
-        with open(f'yutai_2024{str(month).zfill(2)}.csv', mode = 'a', encoding = 'UTF-8') as f:
+        with open(f'../yutai_2024{str(month).zfill(2)}.csv', mode = 'a', encoding = 'UTF-8') as f:
             f.write(f'{stock_code},{stock_name},{min_price},{month_list[index]},{min_num},{item_name}\n')
 
         index += 1
