@@ -47,8 +47,6 @@ class Login():
             print('ログイン失敗')
             return False
 
-        print(type(session))
-
         return session
 
 
