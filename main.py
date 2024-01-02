@@ -11,18 +11,23 @@ class Main():
                                        config.KABUCOM_PASSWORD)
         self.matsui = matsui.Matsui()
         self.rakuten = rakuten.Rakuten()
-        self.sbi = sbi.Sbi()
-        self.smbc = smbc.Smbc()
+        self.sbi = sbi.Sbi(config.SBI_USER_NAME,
+                           config.SBI_LOGIN_PASSWORD)
+        self.smbc = smbc.Smbc(config.SMBC_BRANCH_CODE,
+                              config.SMBC_ACCOUNT_NUMBER,
+                              config.SMBC_LOGIN_PASSWORD)
 
     def test(self):
         '''テスト用コード'''
-        session = self.kabucom.login.login()
+        session = self.smbc.login.login()
         if not session:
             print('ログインエラー')
 
-        stock_data = self.kabucom.get.stock_num(session)
-        if stock_data == False:
+        stock_list = self.smbc.get.stock_num(session)
+        if stock_list == False:
             print('在庫データ取得エラー')
+            
+        print(stock_list)
 
 
 if __name__ == '__main__':

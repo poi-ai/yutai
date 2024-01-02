@@ -1,4 +1,5 @@
 #!/bin/bash
+# 口座情報を誤ってcommitしないようにこのファイルを.git/hooksディレクトリ内にコピーする
 
 if git diff --cached --name-only | grep -q "config.py.bak"; then
     echo "config.py.bak が更新されています。誤って口座情報をcommitしようとしていないか確認してください。"
