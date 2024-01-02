@@ -80,9 +80,9 @@ class Get():
 
                         stock_info = {}
                         tds = tr.find_all('td')
-                        stock_info['stock_code'] = tds[0].text.replace('\n', '').replace('\t', '').replace('\r', '')
+                        stock_info['stock_code'] = int(tds[0].text.replace('\n', '').replace('\t', '').replace('\r', ''))
                         stock_info['stock_name'] = tds[1].text.replace('\n', '').replace('\u3000', '')
-                        stock_info['stock_num'] = tds[6].text.replace('株', '').replace(',', '').replace('-', '-1').replace('\n', '')
+                        stock_info['stock_num'] = int(tds[6].text.replace('株', '').replace(',', '').replace('-', '-1').replace('\n', ''))
                         stock_list.append(stock_info)
 
         return stock_list

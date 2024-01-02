@@ -19,14 +19,14 @@ class Main():
 
     def test(self):
         '''テスト用コード'''
-        session = self.smbc.login.login()
+        session = self.kabucom.login.login()
         if not session:
             print('ログインエラー')
 
-        stock_list = self.smbc.get.stock_num(session)
+        stock_list = self.kabucom.get.stock_num(session)
         if stock_list == False:
             print('在庫データ取得エラー')
-            
+
         print(stock_list)
 
 
