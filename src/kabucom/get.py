@@ -4,6 +4,14 @@ from bs4 import BeautifulSoup
 class Get():
     '''auカブコム証券から情報を取得する'''
 
+    def __init__(self, log):
+        '''
+        Args:
+            log(Log): カスタムログ
+
+        '''
+        self.log = log
+
     def stock_num(self, session, page_no = 1):
         '''
         auカブコムの一般信用売の在庫数を取得する
@@ -37,30 +45,28 @@ class Get():
         try:
             r = session.post('https://s20.si0.kabu.co.jp/ap/pc/Stocks/Margin/MarginSymbol/GeneralSellList', data = search_info)
         except:
-            print('接続に失敗')
+            self.log.error('接続に失敗')
             return False
 
-        print(r.status_code)
-
         if r.status_code != 200:
-            print(f'接続に失敗 ステータスコード: {r.status_code}')
+            self.log.error(f'接続に失敗 ステータスコード: {r.status_code}')
             return False
 
         soup = BeautifulSoup(r.content, 'html.parser')
 
         # メンテンス中
         if 'メンテナンス中' in soup.text:
-            print('メンテナンス中')
+            self.log.error('メンテナンス中')
 
         # ログインができていない
         if '口座番号とパスワードを入力してログインしてください' in soup.text:
-            print('ログインできてない')
+            self.log.error('ログインできてない')
             return False
 
         # 大引け~19:30までは在庫数が表示されない
         # TODO この間の時間にアクセスをかけてみてチェック
         #if 'TODO' in soup.text:
-        #    print('対象時間外')
+        #    self.log.error('対象時間外')
         #    return False
 
         # TODO 抽選予約中の時間(19:30~20:30)の予約状況のテーブルと注文可能時間で(20:30~翌営業日大引け)の取得ロジックで切り替える

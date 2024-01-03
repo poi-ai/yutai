@@ -4,13 +4,15 @@ from bs4 import BeautifulSoup
 class Login():
     '''SBI証券にログインを行う'''
 
-    def __init__(self, user_name, password):
+    def __init__(self, log, user_name, password):
         '''
         Args:
+            log(Log): カスタムログ
             user_name(str): 口座番号
             password(str): パスワード
 
         '''
+        self.log = log
         self.use_name = user_name
         self.password = password
 
@@ -42,17 +44,17 @@ class Login():
         try:
             r = session.post('https://site1.sbisec.co.jp/ETGate/', data = login_info)
         except:
-            print('接続に失敗')
+            self.log.error('接続に失敗')
             return False
 
         if r.status_code != 200:
-            print(f'接続に失敗 ステータスコード: {r.status_code}')
+            self.log.error(f'接続に失敗 ステータスコード: {r.status_code}')
             return False
 
         soup = BeautifulSoup(r.content, 'lxml')
 
         if 'https://search.sbisec.co.jp/attention/maintenance.html' in str(soup):
-            print('メンテナンス中')
+            self.log.error('メンテナンス中')
             return False
 
         return session

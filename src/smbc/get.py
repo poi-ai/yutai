@@ -3,6 +3,14 @@ from bs4 import BeautifulSoup
 class Get():
     '''SMBC日興証券から情報を取得する'''
 
+    def __init__(self, log):
+        '''
+        Args:
+            log(Log): カスタムログ
+
+        '''
+        self.log = log
+
     def stock_num(self, session, page_no = 1):
         '''
         SMBC日興証券の一般信用売の在庫数を取得する
@@ -43,18 +51,18 @@ class Get():
         try:
             r = session.post('https://trade.smbcnikko.co.jp/StockOrderConfirmation/hoge/sinyo/meig/toriichiran', data = search_info)
         except:
-            print('接続に失敗')
+            self.log.error('接続に失敗')
             return False
 
         if r.status_code != 200:
-            print(f'接続に失敗 ステータスコード: {r.status_code}')
+            self.log.error(f'接続に失敗 ステータスコード: {r.status_code}')
             return False
 
         soup = BeautifulSoup(r.content, 'html.parser')
 
         # セッション切れ
         if 'NOL11007E' in soup.text:
-            print('セッション切れ')
+            self.log.error('セッション切れ')
             return False
 
         # 検索した銘柄が存在しない場合
@@ -76,7 +84,6 @@ class Get():
                     for index, tr in enumerate(table.find_all('tr')):
                         # 1, 2行目はヘッダーなのでパス
                         if index <= 1: continue
-                        print(index)
 
                         stock_info = {}
                         tds = tr.find_all('td')
