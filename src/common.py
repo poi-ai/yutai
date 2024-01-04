@@ -55,7 +55,7 @@ class Output():
             data_list(list[dict{},dict{},...]): dictで保持されているデータのlist
 
         '''
-        now = datetime.utcnow() + timedelta(hours = 9)
+        now = self.log.now()
         current_date = now.strftime("%Y/%m/%d")
         current_time = now.strftime("%H:%M")
 
@@ -80,7 +80,7 @@ class Log():
         self.logger = logging.getLogger()
         self.output = output
         self.filename = filename
-        self.today = (datetime.utcnow() + timedelta(hours = 9)).strftime("%Y%m%d")
+        self.today = self.now().strftime("%Y%m%d")
         self.set()
 
     def set(self):
@@ -110,7 +110,7 @@ class Log():
             if not os.path.exists(log_folder):
                 os.makedirs(log_folder)
             # 出力先を設定
-            handler = logging.FileHandler(filename = os.path.join(log_folder, f'{(datetime.utcnow() + timedelta(hours = 9)).strftime("%Y%m%d")}.log'), encoding = 'utf-8')
+            handler = logging.FileHandler(filename = os.path.join(log_folder, f'{self.now().strftime("%Y%m")}.log'), encoding = 'utf-8')
             # 出力レベルを設定
             handler.setLevel(logging.INFO)
             # フォーマットの設定
@@ -131,11 +131,15 @@ class Log():
 
     def date_check(self):
         '''日付変更チェック'''
-        date = (datetime.utcnow() + timedelta(hours = 9)).strftime("%Y%m%d")
+        date = self.now().strftime("%Y%m%d")
         if self.today != date:
             self.today = date
             # PG起動中に日付を超えた場合はログ名を設定しなおす
             self.set()
+
+    def now(self):
+        '''現在のJSTを取得'''
+        return datetime.utcnow() + timedelta(hours = 9)
 
     def debug(self, message):
         self.date_check()
@@ -170,8 +174,8 @@ class Log():
             stack(list): 呼び出し元のスタック
 
         Returns:
-            stack[2].filename(str): 呼び出し元ファイル名
-            stack[2].lineno(int): 呼び出し元行番号
+            os.path.basename(stack[1].filename)(str): 呼び出し元ファイル名
+            stack[1].lineno(int): 呼び出し元行番号
 
         '''
         return os.path.basename(stack[1].filename), stack[1].lineno

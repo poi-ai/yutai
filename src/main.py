@@ -1,6 +1,6 @@
 import config, common
 import kabucom, matsui, rakuten, sbi, smbc
-import sys
+import sys, time
 
 class Main():
     def __init__(self):
@@ -65,19 +65,40 @@ class Main():
             return False
         self.log.info('auカブコム証券ログイン終了')
 
-        # 一般在庫情報取得
-        self.log.info('auカブコム証券一般在庫取得開始')
-        stock_list = self.kabucom.get.stock_num(session)
-        if stock_list == False or len(stock_list) == 0:
-            return False
-        self.log.info('auカブコム証券一般在庫取得終了')
+        self.log.info('auカブコム証券一般在庫取得／出力開始')
 
-        # CSV出力
-        self.log.info('auカブコム証券一般在庫CSV出力開始')
-        result = self.output.output_csv(stock_list, 'kabucom')
-        if result == False:
+        # 対象件数取得
+        self.log.info(f'対象件数取得開始')
+        total_num, pages = self.kabucom.get.subject_num(session)
+        if total_num == False:
             return False
-        self.log.info('auカブコム証券一般在庫CSV出力終了')
+        self.log.info(f'対象件数取得終了 対象件数: {total_num}件／全{pages}ページ')
+
+        for page in range(1, pages + 1):
+            # 一般在庫情報取得
+            self.log.info(f'{page}ページ目取得開始')
+            stock_list = self.kabucom.get.stock_num(session, page)
+
+            # 取得失敗
+            if stock_list == False or len(stock_list) == 0:
+                return False
+
+            self.log.info(f'{page}ページ目取得終了')
+
+            # 取得情報がない(=取得するデータがこれ以上ない)
+            if stock_list == []:
+                break
+
+            # CSV出力
+            self.log.info(f'{page}ページ目CSV出力開始')
+            result = self.output.output_csv(stock_list, f'kabucom_stock{self.log.now().strftime("%Y")}')
+            if result == False:
+                return False
+            self.log.info(f'{page}ページ目CSV出力終了')
+            time.sleep(2)
+
+        self.log.info('auカブコム証券一般在庫取得／出力終了')
+
         return True
 
     def smbc_record(self):
@@ -91,17 +112,38 @@ class Main():
 
         # 一般在庫情報取得
         self.log.info('SMBC日興証券一般在庫取得開始')
-        stock_list = self.smbc.get.stock_num(session)
-        if stock_list == False or len(stock_list) == 0:
-            return False
-        self.log.info('SMBC日興証券一般在庫取得終了')
 
-        # CSV出力
-        self.log.info('SMBC日興証券一般在庫CSV出力開始')
-        result = self.output.output_csv(stock_list, 'smbc')
-        if result == False:
+        # 対象件数取得
+        self.log.info(f'対象件数取得開始')
+        total_num, pages = self.smbc.get.subject_num(session)
+        if total_num == False:
             return False
-        self.log.info('SMBC日興証券一般在庫CSV出力終了')
+        self.log.info(f'対象件数取得終了 対象件数: {total_num}件／全{pages}ページ')
+
+        for page in range(1, pages + 1):
+            # 一般在庫情報取得
+            self.log.info(f'{page}ページ目取得開始')
+            stock_list = self.smbc.get.stock_num(session, page)
+
+            # 取得失敗
+            if stock_list == False or len(stock_list) == 0:
+                return False
+
+            self.log.info(f'{page}ページ目取得終了')
+
+            # 取得情報がない(=取得するデータがこれ以上ない)
+            if stock_list == []:
+                break
+
+            # CSV出力
+            self.log.info(f'{page}ページ目CSV出力開始')
+            result = self.output.output_csv(stock_list, f'smbc_stock{self.log.now().strftime("%Y")}')
+            if result == False:
+                return False
+            self.log.info(f'{page}ページ目CSV出力終了')
+            time.sleep(2)
+
+        self.log.info('SMBC日興証券一般在庫取得／出力終了')
 
         return True
 

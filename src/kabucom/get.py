@@ -1,4 +1,5 @@
-import time
+import math
+import re
 from bs4 import BeautifulSoup
 
 class Get():
@@ -57,17 +58,17 @@ class Get():
         # メンテンス中
         if 'メンテナンス中' in soup.text:
             self.log.error('メンテナンス中')
+            return False
 
         # ログインができていない
         if '口座番号とパスワードを入力してログインしてください' in soup.text:
             self.log.error('ログインできてない')
             return False
 
-        # 大引け~19:30までは在庫数が表示されない
-        # TODO この間の時間にアクセスをかけてみてチェック
-        #if 'TODO' in soup.text:
-        #    self.log.error('対象時間外')
-        #    return False
+        # 取得可能時間外(営業日大引け~19:30)
+        if '※翌営業日分の一般信用売建可能数量（在庫株数量）は19:30よりご確認ください。' in soup.text:
+            self.log.warning('取得可能時間外(営業日大引け~19:30)')
+            return False, False
 
         # TODO 抽選予約中の時間(19:30~20:30)の予約状況のテーブルと注文可能時間で(20:30~翌営業日大引け)の取得ロジックで切り替える
         # とりあえず今は後者のみ実装
@@ -96,3 +97,72 @@ class Get():
                         stock_list.append(stock_info)
 
         return stock_list
+
+    def subject_num(self, session):
+        '''
+        在庫取得対象の件数／ページ数を取得する
+
+        Args:
+            session(requests.sessions.Session): ログイン状態のセッション
+
+        Returns:
+            total_num(int): 対象件数
+            pages(int): 対象ページ数
+
+        '''
+        search_info = {
+            'Keyword': '',                        # 銘柄名・銘柄コード検索ワード
+            'FilterMarginType.Value': 'LONG',     # 空売り種別 LONG: 長期、DAY: デイトレ、ALL: 長期&デイトレ
+            'FilterBackwardation.Value': 'ALL',   # 逆日歩有無 ARI: あり、NASHI: なし、ALL: 両方
+            'FilterSpecialBenefit.Value': 'ARI',  # 優待有無 ARI: あり、NASHI: なし、ALL: 両方
+            'FilterPremium.Value': 'ALL',         # プレミアム料 ARI: あり、NASHI: なし、ALL: 両方
+            'FilterAvailableOnly': False,         # 注文可能銘柄のみか True: 注文可能銘柄のみ、False: 全て
+            'FilterFavoriteOnly': False,          # お気に入り登録銘柄のみか True: お気に入り登録銘柄のみ、False: 全て
+            'BenefitMonth': '0',                  # 権利確定月 0: 指定なし、1: 1月、...、12: 12月
+            'market': '0',                        # 市場 0: 指定なし、13: 東証プライム、1A: 東証スタンダード、1B: 東証グロース、3: 名古屋
+            'PageNo': '1',                        # ページ番号
+            'SortType.Value': 'Brand'             # 並び順 SymbolCodeUnit: 銘柄コード1000番ごと、Brand: 銘柄コード昇順で100件ごと 以下割愛
+        }
+
+        try:
+            r = session.post('https://s20.si0.kabu.co.jp/ap/pc/Stocks/Margin/MarginSymbol/GeneralSellList', data = search_info)
+        except:
+            self.log.error('接続に失敗')
+            return False
+
+        if r.status_code != 200:
+            self.log.error(f'接続に失敗 ステータスコード: {r.status_code}')
+            return False
+
+        soup = BeautifulSoup(r.content, 'html.parser')
+
+        # メンテンス中
+        if 'メンテナンス中' in soup.text:
+            self.log.error('メンテナンス中')
+            return False, False
+
+        # ログインができていない
+        if '口座番号とパスワードを入力してログインしてください' in soup.text:
+            self.log.error('ログインできてない')
+            return False, False
+
+        # 取得可能時間外(営業日大引け~19:30)
+        if '※翌営業日分の一般信用売建可能数量（在庫株数量）は19:30よりご確認ください。' in soup.text:
+            self.log.warning('取得可能時間外(営業日大引け~19:30)')
+            return False, False
+
+        # 対象の件数なし
+        if '該当する情報はありませんでした' in soup.text:
+            self.log.info('対象件数0件')
+            return 0, 0
+
+        # 件数取得
+        search = re.search('\d+-(\d+)件／(\d+)件', soup.text)
+        if search is None:
+            self.log.error('対象件数の取得が行えませんでした')
+            return False, False
+
+        # 1ページ当たりの表示件数、全件数
+        per_page, total_num = search.groups()
+
+        return int(total_num), math.ceil(int(total_num) / int(per_page))

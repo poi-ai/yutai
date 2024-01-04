@@ -1,3 +1,5 @@
+import math
+import re
 from bs4 import BeautifulSoup
 
 class Get():
@@ -93,3 +95,70 @@ class Get():
                         stock_list.append(stock_info)
 
         return stock_list
+
+    def subject_num(self, session):
+        '''
+        在庫取得対象の件数／ページ数を取得する
+
+        Args:
+            session(requests.sessions.Session): ログイン状態のセッション
+            page_num: ページ番号
+
+        Returns:
+            total_num(int): 対象件数
+            pages(int): 対象ページ数
+
+        '''
+
+        # 検索対象の絞り込み
+        # 基本的には一般信用売しか見ないので、ページ数以外のパラメータは固定(必要になったら拡張)
+        search_info = {
+            'search': '1',
+            'searchmeig': '',       # 銘柄名・銘柄コード検索ワード
+            'seidokai': '0',        # 制度信用買がある銘柄
+            'seidouri': '0',        # 制度信用売がある銘柄
+            'ipankai': '0',         # 一般信用買がある銘柄
+            'ipanuri': '1',         # 一般信用売がある銘柄
+            'tse1': '1',            # 東証プライムの銘柄
+            'tse2': '1',            # 東証スタンダードの銘柄
+            'tse3': '1',            # 東証グロースの銘柄
+            'nse1': '1',            # 名証プレミアの銘柄
+            'nse2': '1',            # 名証メインの銘柄
+            'nse3': '1',            # 名証ネクストの銘柄
+            'bottonSyubetu': '1',   # 並び順、1: 銘柄コード順、2: 銘柄名順
+            'meigCdJyun': '0',      # 銘柄コード順の場合、全銘柄かx000番台のみ表示か。0: 全銘柄、1: 1000番台、...
+            'meigNmJyun': '0',      # 銘柄名順の場合、全銘柄かあ行のみ表示か。0: 全銘柄、1: あ行、2:か行、...11: その他
+            'pageno': '1'           # ページ番号
+        }
+
+        try:
+            r = session.post('https://trade.smbcnikko.co.jp/StockOrderConfirmation/hoge/sinyo/meig/toriichiran', data = search_info)
+        except:
+            self.log.error('接続に失敗')
+            return False, False
+
+        if r.status_code != 200:
+            self.log.error(f'接続に失敗 ステータスコード: {r.status_code}')
+            return False, False
+
+        soup = BeautifulSoup(r.content, 'html.parser')
+
+        # セッション切れ
+        if 'NOL11007E' in soup.text:
+            self.log.error('セッション切れ')
+            return False, False
+
+        # 検索した銘柄が存在しない場合
+        if '現在お取扱中の銘柄はございません。' in soup.text:
+            return 0, 0
+
+        # 件数取得
+        search = re.search('([\d,]+)件中.+?([\d,]+)件表示', soup.text)
+        if search is None:
+            self.log.error('対象件数の取得が行えませんでした')
+            return False, False
+
+        # 1ページ当たりの表示件数、全件数
+        total_num, per_page = int(search.groups()[0].replace(',', '')), int(search.groups()[1].replace(',', ''))
+
+        return total_num, math.ceil(total_num / per_page)
