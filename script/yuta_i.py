@@ -7,10 +7,10 @@ from bs4 import BeautifulSoup
 
 ### みんかぶから指定した月の優待情報をまとめて取得しCSVに書き出すスクリプト ###
 ### 下記に取得したい月を入力 ###
-month = 2
+month = 8
 
 for page in range(1, 100):
-    time.sleep(3)
+    time.sleep(2)
 
     r = requests.get(f'https://minkabu.jp/yutai/popular_ranking/total?month={month}&page={page}')
     soup = BeautifulSoup(r.content, 'lxml')
@@ -23,7 +23,7 @@ for page in range(1, 100):
     month_list = []
     # 権利確定付きを取得
     for target_month in soup.find_all('span', class_='dpib fsize_sss fcgl'):
-        month_list.append(target_month.text.replace('権利確定', '').replace('月', '').replace(',', '&'))
+        month_list.append(target_month.text.replace('権利確定', '').replace('月', '').replace(',', '&').replace('優待', ''))
 
     index = 0
     for data in soup.find_all('div', class_='ly_col ly_colsize_9'):

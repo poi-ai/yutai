@@ -5,19 +5,25 @@ import sys, time
 class Main():
     def __init__(self):
         self.log = common.Log()
-        self.output = common.Output(self.log)
-        self.kabucom = kabucom.Kabucom(self.log,
-                                       config.KABUCOM_ACCOUNT_NUMBER,
-                                       config.KABUCOM_PASSWORD)
-        self.matsui = matsui.Matsui()
-        self.rakuten = rakuten.Rakuten()
-        self.sbi = sbi.Sbi(self.log,
-                           config.SBI_USER_NAME,
-                           config.SBI_LOGIN_PASSWORD)
-        self.smbc = smbc.Smbc(self.log,
-                              config.SMBC_BRANCH_CODE,
-                              config.SMBC_ACCOUNT_NUMBER,
-                              config.SMBC_LOGIN_PASSWORD)
+        self.line_token = ''
+        self.stock_list = []
+        try:
+            self.output = common.Output(self.log)
+            self.kabucom = kabucom.Kabucom(self.log,
+                                        config.KABUCOM_ACCOUNT_NUMBER,
+                                        config.KABUCOM_PASSWORD)
+            self.matsui = matsui.Matsui()
+            self.rakuten = rakuten.Rakuten()
+            self.sbi = sbi.Sbi(self.log,
+                            config.SBI_USER_NAME,
+                            config.SBI_LOGIN_PASSWORD)
+            self.smbc = smbc.Smbc(self.log,
+                                config.SMBC_BRANCH_CODE,
+                                config.SMBC_ACCOUNT_NUMBER,
+                                config.SMBC_LOGIN_PASSWORD)
+        except AttributeError:
+            self.log.error('config.pyの証券会社のID・パスワード設定が正常に行われていません')
+            exit()
 
     def main(self):
         '''主処理'''
@@ -30,9 +36,14 @@ class Main():
 
         # auカブコム証券
         if shoken == 'kabucom':
-            # 一般在庫をCSVに記録
+            # 全銘柄の一般在庫をCSVに記録
             if exec_type == 'record':
                 self.kabucom_record()
+                exit()
+
+            # configファイルで設定した銘柄の一般在庫をLINEで通知
+            elif exec_type == 'notice':
+                self.kabucom_notice()
                 exit()
 
             # 実行処理の設定が不正
@@ -45,6 +56,11 @@ class Main():
             # 一般在庫をCSVに記録
             if exec_type == 'record':
                 self.smbc_record()
+                exit()
+
+            # configファイルで設定した銘柄の一般在庫をLINEで通知
+            elif exec_type == 'notice':
+                self.smbc_notice()
                 exit()
 
             # 実行処理の設定が不正
@@ -101,6 +117,15 @@ class Main():
 
         return True
 
+    def kabucom_notice(self):
+        '''auカブコム証券の設定ファイルで指定した銘柄コードの一般在庫をLINEで通知する'''
+
+        # 設定データのチェック
+        self.notice_check()
+
+        # TODO 取得処理
+
+
     def smbc_record(self):
         '''SMBC日興証券の一般在庫情報の取得／CSV出力'''
         # ログイン
@@ -147,23 +172,44 @@ class Main():
 
         return True
 
+    def smbc_notice(self):
+        '''SMBC日興証券の設定ファイルで指定した銘柄コードの一般在庫をLINEで通知する'''
+
+        # 設定データのチェック
+        self.notice_check()
+
+        # TODO 取得処理
+
+    def notice_check(self):
+        '''対象銘柄の在庫情報をLINE通知に送る処理についてデータのチェックを行う'''
+        try:
+            if config.LINE_NOTIFY_API_KEY == '':
+                self.log.warning('config.pyにLINE Notifyトークンの設定がされていません')
+                exit()
+            else:
+                self.line_token = config.LINE_NOTIFY_API_KEY
+        except AttributeError:
+            self.log.error('config.pyにLINE Notifyトークン用の変数(LINE_NOTIFY_API_KEY)が定義されていません')
+            exit()
+
+        try:
+            if len(config.TARGET_STOCK_CODE_LIST) == 0:
+                self.log.warning('config.pyに通知対象銘柄の設定がされていません')
+                exit()
+            else:
+                self.stock_list = config.TARGET_STOCK_CODE_LIST
+        except AttributeError:
+            self.log.error('config.pyに通知対象銘柄用の変数(TARGET_STOCK_CODE_LIST)が定義されていません')
+            exit()
+
+        return True
+
     def test(self):
         '''テスト用コード'''
-        session = self.kabucom.login.login()
-        if not session:
-            print('ログインエラー')
-            return
-
-        stock_list = self.kabucom.get.stock_num(session)
-        if stock_list == False:
-            print('在庫データ取得エラー')
-            return
-
-        print(stock_list)
-
+        self.notice_check()
 
 if __name__ == '__main__':
     main = Main()
-    main.main()
+    #main.main()
 
-    #main.test()
+    main.test()

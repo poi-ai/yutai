@@ -1,3 +1,5 @@
+### 証券会社へのID/PASSWORD ###
+
 # SBI
 SBI_USER_NAME = ''
 SBI_LOGIN_PASSWORD = ''
@@ -22,3 +24,16 @@ SMBC_BRANCH_CODE = ''
 SMBC_ACCOUNT_NUMBER = ''
 SMBC_LOGIN_PASSWORD = ''
 SMBC_TRADE_PASSWORD = ''
+
+
+### 取得対象 ###
+
+# 取得対象の銘柄コードのリスト
+# strかintで列挙
+TARGET_STOCK_CODE_LIST = []
+
+
+### LINE通知 ###
+
+# LINE NotifyのAPIキー
+LINE_NOTIFY_API_KEY = ''
