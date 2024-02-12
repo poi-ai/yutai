@@ -67,6 +67,7 @@ class Main():
 
         self.log.info('auカブコム証券一般在庫取得／出力開始')
 
+        ''' CSV取得ができなくなった場合に使用
         # 対象件数取得
         self.log.info(f'対象件数取得開始')
         total_num, pages = self.kabucom.get.subject_num(session)
@@ -96,6 +97,7 @@ class Main():
                 return False
             self.log.info(f'{page}ページ目CSV出力終了')
             time.sleep(2)
+        '''
 
         self.log.info('auカブコム証券一般在庫取得／出力終了')
 
@@ -150,6 +152,17 @@ class Main():
     def test(self):
         '''テスト用コード'''
         session = self.kabucom.login.login()
+        result = self.kabucom.get.stock_csv(session)
+        try:
+            with open('./data/teso.csv', 'wb') as f:
+                f.write()
+        except Exception as e:
+            print(e)
+            self.log.error('CSV取得に失敗')
+            return False
+        print(result)
+        '''
+        session = self.kabucom.login.login()
         if not session:
             print('ログインエラー')
             return
@@ -160,10 +173,11 @@ class Main():
             return
 
         print(stock_list)
+        '''
 
 
 if __name__ == '__main__':
     main = Main()
-    main.main()
+    #main.main()
 
-    #main.test()
+    main.test()
