@@ -29,7 +29,7 @@ class Main():
         '''主処理'''
         if len(sys.argv) < 3:
             self.log.error('コマンドライン引数が足りません')
-            exit()
+            return False
 
         # 対象となる証券会社・の判別
         shoken, exec_type = sys.argv[1], sys.argv[2]
@@ -38,12 +38,50 @@ class Main():
         if shoken == 'kabucom':
             # 全銘柄の一般在庫をCSVに記録
             if exec_type == 'record':
-                self.kabucom_record()
-                exit()
+                # auカブコム証券のWebサイトから一般在庫データの取得
+                csv_data = self.kabucom_get_csv()
+                if csv_data == False:
+                    return False
+
+                # 注文受付時間チェック
+                if '翌営業日分の一般信用売建可能数量' in csv_data:
+                    self.log.warning('auカブコム証券の注文受付時間外です')
+                    return True
+
+                # 一般在庫データの成型
+                mold_data, data_type = self.kabucom_mold_csv(csv_data)
+
+                # CSV出力
+                self.log.info(f'auカブコム証券一般在庫CSV出力開始')
+                try:
+                    self.output.output_csv(mold_data, f'{self.log.now().strftime("%Y")}_kabucom_stock_{data_type}')
+                except Exception as e:
+                    self.log.error('auカブコム証券一般在庫CSV出力失敗')
+                    self.log.error(e)
+                self.log.info('auカブコム証券一般在庫CSV出力終了')
+
+                return True
 
             # configファイルで設定した銘柄の一般在庫をLINEで通知
             elif exec_type == 'notice':
-                self.kabucom_notice()
+                # 設定値チェック
+                self.notice_check()
+
+                # auカブコム証券のWebサイトから一般在庫データの取得
+                csv_data = self.kabucom_get_csv()
+                if csv_data == False:
+                    return False
+
+                # 注文受付時間チェック
+                if '翌営業日分の一般信用売建可能数量' in csv_data:
+                    self.log.warning('auカブコム証券の注文受付時間外です')
+                    return True
+
+                # 一般在庫データの成型
+                mold_data, data_type = self.kabucom_mold_csv(csv_data)
+
+                # LINEでデータ送信
+                self.kabucom_line_send(mold_data, data_type)
                 exit()
 
             # 実行処理の設定が不正
@@ -72,8 +110,14 @@ class Main():
         else:
             self.log.error('第一引数が無効です')
 
-    def kabucom_record(self):
-        '''auカブコム証券の一般在庫情報の取得／CSV出力'''
+    def kabucom_get_csv(self):
+        '''
+        auカブコム証券の一般在庫情報のCSVを取得
+
+        Returns:
+            stock_csv.decode(str): strにデコードされた在庫情報のCSV
+
+        '''
         # ログイン
         self.log.info('auカブコム証券ログイン開始')
         session = self.kabucom.login.login()
@@ -81,8 +125,14 @@ class Main():
             return False
         self.log.info('auカブコム証券ログイン終了')
 
-        self.log.info('auカブコム証券一般在庫取得／出力開始')
+        self.log.info('auカブコム証券一般在庫取得開始')
 
+        # 優待あり銘柄の在庫情報(+注文情報)をCSVのバイナリで取得する
+        stock_csv = self.kabucom.get.stock_csv(session)
+        if stock_csv == False:
+            return False
+
+        ''' CSVが出力がなくなった場合は下記を使用する
         # 対象件数取得
         self.log.info(f'対象件数取得開始')
         total_num, pages = self.kabucom.get.subject_num(session)
@@ -112,19 +162,101 @@ class Main():
                 return False
             self.log.info(f'{page}ページ目CSV出力終了')
             time.sleep(2)
+        '''
 
-        self.log.info('auカブコム証券一般在庫取得／出力終了')
+        self.log.info('auカブコム証券一般在庫取得終了')
 
-        return True
+        # バイナリを文字列に変換して返す
+        return stock_csv.decode()
 
-    def kabucom_notice(self):
-        '''auカブコム証券の設定ファイルで指定した銘柄コードの一般在庫をLINEで通知する'''
+    def kabucom_mold_csv(self, stock_data):
+        '''auカブコム証券から取得した一般在庫データを加工する
 
-        # 設定データのチェック
-        self.notice_check()
+        Args:
+            stock_data(str): 取得した一般在庫データをデコードしたもの
 
-        # TODO 取得処理
+        Returns:
+            rows(list[dict[], dict[]]): 成型後の一般在庫データ
+            data_type(str): データの種別
+                order: 注文受付中、lottery: 抽選受付中
 
+        '''
+        self.log.info('auカブコム証券一般在庫データ成型開始')
+
+        # 在庫補充後の抽選受付時間(営業日19:30~20:30)かそれ以外か
+        if '申込数量' in stock_data:
+            data_type = 'lottery'
+        else:
+            data_type = 'order'
+
+        # 行ごとに分割してリスト化
+        rows = stock_data.strip().split('\r\n')
+
+        # ヘッダー行を書き換え
+        if data_type == 'lottery':
+            header = ['stock_code', 'stock_name', 'order_num', 'stock_num', 'premium_lower', 'premium_upper']
+        else:
+            header = ['stock_code', 'stock_name', 'stock_num', 'premium']
+
+        # 各行(=銘柄ごとのデータ)を操作
+        for i in range(1, len(rows)):
+            # 前方空白/信用種別の削除
+            rows[i] = rows[i].lstrip().replace('長期,', '')
+            # 連想配列に変換
+            rows[i] = dict(zip(header, rows[i].split(',')))
+
+            # プレミアム料なしを0.0円として追加
+            if data_type == 'lottery':
+                if rows[i]['premium_lower'] == '':
+                    rows[i]['premium_lower'] = '0.0'
+                if rows[i]['premium_upper'] == '':
+                    rows[i]['premium_upper'] = '0.0'
+            else:
+                if rows[i]['premium'] == '':
+                    rows[i]['premium'] = '0.0'
+
+        # ヘッダー行削除
+        rows.pop(0)
+        self.log.info('auカブコム証券一般在庫データ成型終了')
+
+        return rows, data_type
+
+    def kabucom_line_send(self, stock_data, data_type):
+        '''auカブコム証券で取得した一般在庫データをLINEで送る
+
+        Args:
+            stock_data(list[dict{},dict{}...]): 成型済み一般在庫データ
+            data_type(str): データの種別
+                order: 注文受付中、lottery: 抽選受付中
+
+        '''
+        self.log.info('auカブコム証券一般在庫データLINE送信処理開始')
+
+        # LINEで送信するメッセージの作成
+        notice_message = ''
+        # 通知対象の証券コード
+        for code in config.TARGET_STOCK_CODE_LIST:
+            exist_flag = False
+            # 取得した一般在庫データ一覧
+            for stock in stock_data:
+                if stock['stock_code'] == str(code):
+                    # 注文受付中の場合
+                    if data_type == 'order':
+                        notice_message += f'({stock["stock_code"]}){stock["stock_name"][:6]} 在庫: {stock["stock_num"]}株 プレ料: {stock["premium"]}円\n'
+                    # 抽選受付中の場合
+                    else:
+                        notice_message += f'({stock["stock_code"]}){stock["stock_name"][:6]} 在庫: {stock["stock_num"]}株 申込: {stock["order_num"]}株 プレ料: {stock["premium_lower"]}~{stock["premium_upper"]}円\n'
+                    exist_flag = True
+                    break
+            if not exist_flag:
+                notice_message += f'証券コード:{str(code)}の一般在庫情報はありません\n'
+
+        # LINEで送信
+        result, error_message = self.output.line(notice_message, self.line_token)
+        if result == False:
+            self.log.error(error_message)
+
+        self.log.info('auカブコム証券一般在庫データLINE送信処理終了')
 
     def smbc_record(self):
         '''SMBC日興証券の一般在庫情報の取得／CSV出力'''
@@ -206,10 +338,10 @@ class Main():
 
     def test(self):
         '''テスト用コード'''
-        self.notice_check()
+        return True
 
 if __name__ == '__main__':
     main = Main()
-    #main.main()
+    main.main()
 
-    main.test()
+    #main.test()

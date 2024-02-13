@@ -1,9 +1,11 @@
 import csv
 import logging
 import inspect
+import json
 import os
 import sys
 import re
+import requests
 from datetime import datetime, timedelta
 
 class Output():
@@ -64,6 +66,41 @@ class Output():
             data['time'] = current_time
 
         return data_list
+
+    def line(self, message, token):
+        '''
+        LINEにメッセージを送信する
+
+        Args:
+            message(str) : LINE送信するメッセージ内容
+            token(str): LINE Notifyのトークン
+
+        Returns:
+            result(bool): 実行結果
+            error_message(str): エラー内容
+
+        '''
+
+        # ヘッダー設定
+        headers = {'Authorization': f'Bearer {token}'}
+
+        # メッセージ設定
+        data = {'message': f'{message}'}
+
+        # メッセージ送信
+        try:
+            r = requests.post('https://notify-api.line.me/api/notify', headers = headers, data = data)
+        except Exception as e:
+            return False, f'LINE Notify APIでのメッセージ送信に失敗しました\n{e}'
+
+        if r.status_code != 200:
+            try:
+                return False, f'LINE Notify APIでエラーが発生しました\nステータスコード: {r.status_code}\nエラー内容: {json.dumps(json.loads(r.content), indent=2)}'
+            except Exception as e:
+                return False, f'LINE Notify APIでエラーが発生しました\nステータスコード: {r.status_code}\nエラー内容: []'
+
+        return True, ''
+
 
 class Log():
     '''
