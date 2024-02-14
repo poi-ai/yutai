@@ -29,9 +29,10 @@ SMBC_TRADE_PASSWORD = ''
 ### 取得対象 ###
 
 # 取得対象の銘柄コードのリスト
-# strかintで列挙
-TARGET_STOCK_CODE_LIST = []
-
+# strかintで列挙、別グループとして分けたかっただけで、どこに値を入れてもよい(何通目に来るかの違い)
+FIRST_TARGET_STOCK_CODE_LIST = []
+SECOND_TARGET_STOCK_CODE_LIST = []
+THIRD_TARGET_STOCK_CODE_LIST = []
 
 ### LINE通知 ###
 

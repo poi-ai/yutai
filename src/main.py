@@ -6,7 +6,9 @@ class Main():
     def __init__(self):
         self.log = common.Log()
         self.line_token = ''
-        self.stock_list = []
+        self.first_stock_list = []
+        self.second_stock_list = []
+        self.third_stock_list = []
         try:
             self.output = common.Output(self.log)
             self.kabucom = kabucom.Kabucom(self.log,
@@ -81,7 +83,12 @@ class Main():
                 mold_data, data_type = self.kabucom_mold_csv(csv_data)
 
                 # LINEでデータ送信
-                self.kabucom_line_send(mold_data, data_type)
+                # 1群目
+                self.kabucom_line_send(mold_data, data_type, self.first_stock_list)
+                # 2群目
+                self.kabucom_line_send(mold_data, data_type, self.second_stock_list)
+                # 3群目
+                self.kabucom_line_send(mold_data, data_type, self.third_stock_list)
                 exit()
 
             # 実行処理の設定が不正
@@ -221,21 +228,24 @@ class Main():
 
         return rows, data_type
 
-    def kabucom_line_send(self, stock_data, data_type):
+    def kabucom_line_send(self, stock_data, data_type, code_list):
         '''auカブコム証券で取得した一般在庫データをLINEで送る
 
         Args:
             stock_data(list[dict{},dict{}...]): 成型済み一般在庫データ
             data_type(str): データの種別
                 order: 注文受付中、lottery: 抽選受付中
+            code_list(list): 通知対象の銘柄コードのリスト
 
         '''
+        if len(code_list) == 0: return
+
         self.log.info('auカブコム証券一般在庫データLINE送信処理開始')
 
         # LINEで送信するメッセージの作成
         notice_message = ''
         # 通知対象の証券コード
-        for code in config.TARGET_STOCK_CODE_LIST:
+        for code in code_list:
             exist_flag = False
             # 取得した一般在庫データ一覧
             for stock in stock_data:
@@ -325,13 +335,17 @@ class Main():
             exit()
 
         try:
-            if len(config.TARGET_STOCK_CODE_LIST) == 0:
+            if len(config.FIRST_TARGET_STOCK_CODE_LIST) == 0\
+                or len(config.SECOND_TARGET_STOCK_CODE_LIST) == 0\
+                or len(config.THIRD_TARGET_STOCK_CODE_LIST) == 0:
                 self.log.warning('config.pyに通知対象銘柄の設定がされていません')
                 exit()
             else:
-                self.stock_list = config.TARGET_STOCK_CODE_LIST
+                self.first_stock_list = config.FIRST_TARGET_STOCK_CODE_LIST
+                self.second_stock_list = config.SECOND_TARGET_STOCK_CODE_LIST
+                self.third_stock_list = config.THIRD_TARGET_STOCK_CODE_LIST
         except AttributeError:
-            self.log.error('config.pyに通知対象銘柄用の変数(TARGET_STOCK_CODE_LIST)が定義されていません')
+            self.log.error('config.pyに通知対象銘柄用の変数(FIRST_TARGET_STOCK_CODE_LIST or SECOND_TARGET_STOCK_CODE_LIST)が定義されていません')
             exit()
 
         return True
