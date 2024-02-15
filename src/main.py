@@ -252,10 +252,10 @@ class Main():
                 if stock['stock_code'] == str(code):
                     # 注文受付中の場合
                     if data_type == 'order':
-                        notice_message += f'({stock["stock_code"]}){stock["stock_name"][:6]} 在庫: {stock["stock_num"]}株 プレ料: {stock["premium"]}円\n'
+                        notice_message += f'(\n{stock["stock_code"]}){stock["stock_name"][:10]}\n{stock["stock_num"]}株 {stock["premium"]}円'
                     # 抽選受付中の場合
                     else:
-                        notice_message += f'({stock["stock_code"]}){stock["stock_name"][:6]} 在庫: {stock["stock_num"]}株 申込: {stock["order_num"]}株 プレ料: {stock["premium_lower"]}~{stock["premium_upper"]}円\n'
+                        notice_message += f'(\n{stock["stock_code"]}){stock["stock_name"][:10]}\n{stock["order_num"]}/{stock["stock_num"]}株 {stock["premium_lower"]}~{stock["premium_upper"]}円'
                     exist_flag = True
                     break
             if not exist_flag:
