@@ -108,6 +108,19 @@ class Main():
                 self.smbc_notice()
                 exit()
 
+            # コマンドライン引数で指定した銘柄コードの注文を行う
+            elif exec_type == 'order':
+                # コマンドライン引数チェック
+                if len(sys.argv) < 4:
+                    self.log.error('コマンドライン引数が足りません')
+                    return False
+                if len(sys.argv[3]) != 4:
+                    self.log.error('銘柄コードが正しくありません')
+
+                # 注文処理
+                self.smbc_order(sys.argv[3])
+                exit()
+
             # 実行処理の設定が不正
             else:
                 self.log.error('第二引数が無効です')
@@ -321,6 +334,29 @@ class Main():
         self.notice_check()
 
         # TODO 取得処理
+
+    def smbc_order(self, stock_code):
+        '''SMBC日興証券で一般空売りの注文を行う'''
+        # ログイン
+        self.log.info('SMBC日興証券ログイン開始')
+        session = self.smbc.login.login()
+        if session == False:
+            return False
+        self.log.info('SMBC日興証券ログイン終了')
+
+        self.log.info('SMBC日興証券一般空売り注文開始')
+
+        # TODO 確認画面を経由する必要がある場合 飛ばせれば飛ばす
+        session = self.smbc.order.confirm(session, stock_code)
+        if session == False:
+            return False
+        self.log.info('SMBC日興証券ログイン終了')
+
+        # TODO 注文リクエスト処理
+        session = self.smbc.order.order(session, stock_code)
+        if session == False:
+            return False
+        self.log.info('SMBC日興証券一般空売り注文開始')
 
     def notice_check(self):
         '''対象銘柄の在庫情報をLINE通知に送る処理についてデータのチェックを行う'''
