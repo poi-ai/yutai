@@ -64,7 +64,7 @@ class Get():
 
         # セッション切れ
         if 'NOL11007E' in soup.text:
-            self.log.error('セッション切れ')
+            self.log.error('未ログイン/セッション切れでのエラー')
             return False
 
         # 検索した銘柄が存在しない場合
@@ -145,7 +145,7 @@ class Get():
 
         # セッション切れ
         if 'NOL11007E' in soup.text:
-            self.log.error('セッション切れ')
+            self.log.error('未ログイン/セッション切れでのエラー')
             return False, False
 
         # 検索した銘柄が存在しない場合
@@ -162,3 +162,40 @@ class Get():
         total_num, per_page = int(search.groups()[0].replace(',', '')), int(search.groups()[1].replace(',', ''))
 
         return total_num, math.ceil(total_num / per_page)
+
+    def order_input(self, session, stock_code):
+        '''
+        一般売注文情報入力画面のHTMLを取得する
+
+        Args:
+            session(requests.sessions.Session): ログイン状態のセッション
+            stock_code(str): 証券コード
+
+        Returns:
+            html(bs4.BeautifulSoup) or False
+
+        '''
+
+        try:
+            r = session.get(f'https://trade.smbcnikko.co.jp/OdrMng/000000000000/sinyo/tku_odr/init?meigCd=00{stock_code}0000&specifyMeig=1&sinyoToriKbn=1')
+        except Exception as e:
+            self.log.error(f'接続に失敗\n{e}')
+            return False
+
+        if r.status_code != 200:
+            self.log.error(f'接続に失敗 ステータスコード: {r.status_code}')
+            return False
+
+        soup = BeautifulSoup(r.content, 'html.parser')
+
+        # 正常に取得できたかチェック
+        if 'お客様名:' not in soup.text:
+            self.log.error('一般売注文情報入力画面の取得に失敗')
+            # セッション切れエラー
+            if 'NOL11007E' in soup.text:
+                self.log.error('未ログイン/セッション切れでのエラー')
+                return False
+            self.log.error('原因不明なエラー')
+            return False
+
+        return soup

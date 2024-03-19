@@ -207,3 +207,40 @@ class Get():
         per_page, total_num = search.groups()
 
         return int(total_num), math.ceil(int(total_num) / int(per_page))
+
+    def order_input(self, session, stock_code):
+        '''
+        一般売注文情報入力画面のHTMLを取得する
+
+        Args:
+            session(requests.sessions.Session): ログイン状態のセッション
+            stock_code(str): 証券コード
+
+        Returns:
+            html(bs4.BeautifulSoup) or False
+
+        '''
+
+        try:
+            r = session.get(f'https://s20.si0.kabu.co.jp/ap/PC/Stocks/Margin/Open/Input?symbol={stock_code}&Exchange=TSE')
+        except Exception as e:
+            self.log.error(f'接続に失敗\n{e}')
+            return False
+
+        if r.status_code != 200:
+            self.log.error(f'接続に失敗 ステータスコード: {r.status_code}')
+            return False
+
+        soup = BeautifulSoup(r.content, 'html.parser')
+
+        # 正常に取得できたかチェック
+        if 'お取引関連通知' not in soup.text:
+            self.log.error('一般売注文情報入力画面の取得に失敗')
+            # セッション切れエラー
+            if '口座番号とパスワードを入力してログインしてください' in soup.text:
+                self.log.error('未ログイン/セッション切れでのエラー')
+                return False
+            self.log.error('原因不明なエラー')
+            return False
+
+        return soup
