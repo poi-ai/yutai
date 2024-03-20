@@ -20,7 +20,7 @@ class Check(Main):
             # 現在時刻の取得/判定
             now = datetime.now()
             # if now.hour == 11 and now.minute >= 57:
-            if now.hour == 8:
+            if now.hour == 9:
                 self.log.info('カブコム/SMBC在庫補充処理チェック処理終了')
                 exit()
 

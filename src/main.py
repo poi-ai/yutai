@@ -272,12 +272,17 @@ class Main():
                     exist_flag = True
                     break
             if not exist_flag:
-                notice_message += f'証券コード:{str(code)}の一般在庫情報はありません\n'
+                notice_message += f'\n証券コード:{str(code)}の一般在庫情報はありません\n'
 
-        # LINEで送信
-        result, error_message = self.output.line(notice_message, self.line_token)
-        if result == False:
-            self.log.error(error_message)
+        # 1000文字を超える場合は分割(念のため990文字ごとに)
+        notice_message_list = [notice_message[i:i + 990] for i in range(0, len(notice_message), 990)]
+
+        # 分割したものを一つずつ送信
+        for message in notice_message_list:
+            # LINEで送信
+            result, error_message = self.output.line(message, self.line_token)
+            if result == False:
+                self.log.error(error_message)
 
         self.log.info('auカブコム証券一般在庫データLINE送信処理終了')
 
