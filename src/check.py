@@ -20,7 +20,7 @@ class Check(Main):
             # 現在時刻の取得/判定
             now = datetime.now()
             # if now.hour == 11 and now.minute >= 57:
-            if now.hour == 17:
+            if now.hour == 8:
                 self.log.info('カブコム/SMBC在庫補充処理チェック処理終了')
                 exit()
 
@@ -30,7 +30,7 @@ class Check(Main):
                 if self.kabucom_session == False:
                     self.kabucom_error_count += 1.0
 
-            if self.smbc_session == False and self.smbc_error_count < 3:
+            if self.smbc_session == False and self.smbc_error_count < 3 and not self.smbc_maintenance(now):
                 self.smbc_login()
                 if self.smbc_session == False:
                     self.smbc_error_count += 1.0
@@ -40,10 +40,11 @@ class Check(Main):
             time.sleep((time_difference.total_seconds() * 10**6) / 10**6)
 
             # SMBCから一般信用残の取得
-            if self.smbc_session != False and self.smbc_error_count < 3:
+            if self.smbc_session != False and self.smbc_error_count < 3 and not self.smbc_maintenance(now):
                 soup = self.smbc.get.order_input(self.smbc_session, stock_code)
                 # 成功チェック
                 if soup == False:
+                    self.smbc_session = False
                     self.smbc_error_count += 1.0
                     if self.smbc_error_count >= 3:
                         self.log.info('SMBCエラーカウント超過のため終了します')
@@ -55,6 +56,7 @@ class Check(Main):
                         self.smbc_error_count -= 0.1
                     except Exception as e:
                         self.log.error('SMBC/在庫数HTML切り出し処理でエラー')
+                        self.smbc_session = False
                         self.smbc_error_count += 1.0
                         if self.smbc_error_count >= 3:
                             self.log.info('SMBCエラーカウント超過のため終了します')
@@ -64,6 +66,7 @@ class Check(Main):
                 soup = self.kabucom.get.order_input(self.kabucom_session, stock_code)
                 # 成功チェック
                 if soup == False:
+                    self.kabucom_session == False
                     self.kabucom_error_count += 1.0
                     if self.kabucom_error_count >= 3:
                         self.log.info('カブコムエラーカウント超過のため終了します')
@@ -76,11 +79,12 @@ class Check(Main):
                                     table_max = len(str(table))
                                     table_soup = table
                         self.log.info(f'カブコム/({stock_code})在庫数: {table_soup.find_all("td")[2].text}')
-                        self.smbc_error_count -= 0.1
+                        self.kabucom_error_count -= 0.1
                     except Exception as e:
                         self.log.error('カブコム/在庫数HTML切り出し処理でエラー')
-                        self.smbc_error_count += 1.0
-                        if self.smbc_error_count >= 3:
+                        self.kabucom_session == False
+                        self.kabucom_error_count += 1.0
+                        if self.kabucom_error_count >= 3:
                             self.log.info('カブコムエラーカウント超過のため終了します')
 
     def kabucom_login(self):
@@ -96,6 +100,11 @@ class Check(Main):
         if self.smbc_session == False:
             return False
         self.log.info('SMBC日興証券ログイン終了')
+
+    def smbc_maintenance(self, now):
+        if now.hour >= 2 and now.hour < 5:
+            return True
+        return False
 
 if __name__ == '__main__':
     target_stock_code = 2730
