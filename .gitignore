@@ -1,4 +1,4 @@
 config.py
 *.csv
 *.log
-yutai_info.py
+test.py
