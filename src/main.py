@@ -1,6 +1,6 @@
 import config, common
 import kabucom, matsui, rakuten, sbi, smbc
-import sys, time
+import sys, time, pandas as pd, traceback
 
 class Main():
     def __init__(self):
@@ -255,24 +255,41 @@ class Main():
 
         self.log.info('auカブコム証券一般在庫データLINE送信処理開始')
 
+        # 優待の補完情報を持つCSVの読み込み(存在しなかったら使わない)
+        df = self.get_stock_info_csv()
+
         # LINEで送信するメッセージの作成
         notice_message = ''
         # 通知対象の証券コード
         for code in code_list:
-            exist_flag = False
+            zaiko_exist_flag = False
             # 取得した一般在庫データ一覧
             for stock in stock_data:
                 if stock['stock_code'] == str(code):
                     # 注文受付中の場合
                     if data_type == 'order':
-                        notice_message += f'\n({stock["stock_code"]}){stock["stock_name"][:10]}\n{stock["stock_num"]}株 {stock["premium"]}円\n'
+                        notice_message += f'\n【({stock["stock_code"]}){stock["stock_name"][:10]}】\n在庫: {stock["stock_num"]}株 プレ料: {stock["premium"]}円\n'
                     # 抽選受付中の場合
                     else:
-                        notice_message += f'\n({stock["stock_code"]}){stock["stock_name"][:10]}\n{stock["order_num"]}/{stock["stock_num"]}株 {stock["premium_lower"]}~{stock["premium_upper"]}円\n'
-                    exist_flag = True
+                        notice_message += f'\n【({stock["stock_code"]}){stock["stock_name"][:10]}】\n在庫: {stock["order_num"]}/{stock["stock_num"]}株 プレ料: {stock["premium_lower"]}~{stock["premium_upper"]}円\n'
+
+                    # 補完情報がある場合追加挿入する
+                    if not df is False:
+                        notice_message += self.create_stock_info_message(stock["stock_code"], df)
+
+                    zaiko_exist_flag = True
                     break
-            if not exist_flag:
-                notice_message += f'\n証券コード:{str(code)}の一般在庫情報はありません\n'
+
+            # 在庫切れ云々でなくそもそも取り扱いをしていない場合
+            if not zaiko_exist_flag:
+                # 補完情報を持つCSVに銘柄名があればそっから引っ張る
+                if not df is False:
+                    try:
+                        notice_message += f"\n({str(code)}){str(df[df['銘柄コード'] == int(code)]['企業名'].iloc[0])[:10]}の一般在庫情報はありません\n"  # TODO int判定だといずれ死ぬのでそのうち直す
+                    except:
+                        notice_message += f'\n証券コード:{str(code)}の一般在庫情報はありません\n'
+                else:
+                    notice_message += f'\n証券コード:{str(code)}の一般在庫情報はありません\n'
 
         # 1000文字を超える場合は分割(念のため990文字ごとに)
         notice_message_list = [notice_message[i:i + 990] for i in range(0, len(notice_message), 990)]
@@ -377,8 +394,8 @@ class Main():
 
         try:
             if len(config.FIRST_TARGET_STOCK_CODE_LIST) == 0\
-                or len(config.SECOND_TARGET_STOCK_CODE_LIST) == 0\
-                or len(config.THIRD_TARGET_STOCK_CODE_LIST) == 0:
+                and len(config.SECOND_TARGET_STOCK_CODE_LIST) == 0\
+                and len(config.THIRD_TARGET_STOCK_CODE_LIST) == 0:
                 self.log.warning('config.pyに通知対象銘柄の設定がされていません')
                 exit()
             else:
@@ -390,6 +407,60 @@ class Main():
             exit()
 
         return True
+
+    def get_stock_info_csv(self):
+        '''
+        優待情報補完用CSVをデータフレームとして設定する
+
+        Returns:
+            df(pandas.DataFrame): 優待情報補完データ
+                ※未配置の場合はFalse
+        '''
+
+        try:
+            df = pd.read_csv('stock_info.csv')
+        except Exception as e:
+            return False
+        return df
+
+    def create_stock_info_message(self, stock_code, df):
+        '''
+        指定した証券コードの銘柄の優待情報メッセージを作成する
+
+        Args:
+            stock_code(str): 証券コード
+            df(pandas.DataFrame): 優待情報
+
+        Returns:
+            yutai_message(str): 指定した証券コードの銘柄の優待情報
+
+        '''
+        yutai_message = ''
+        try:
+            stock_row = df[df['銘柄コード'] == int(stock_code)] # TODO int判定だといずれ死ぬのでそのうち直す
+
+            if not pd.isna(stock_row['通常最低保有株数'].iloc[0]):
+                yutai_message += f"通常優待:\n 優待商品/{stock_row['通常優待商品'].iloc[0]}\n 必要株数/{int(stock_row['通常最低保有株数'].iloc[0])}株 必要額/{stock_row['最低必要額'].iloc[0]}万円 利回り/{stock_row['通常利回り'].iloc[0]}\n"
+            else:
+                yutai_message += '通常優待: なし\n'
+
+            if not pd.isna(stock_row['長期最低保有株数'].iloc[0]):
+                # 長期で必要な最低必要額の計算
+                if pd.isna(stock_row['通常最低保有株数'].iloc[0]):
+                    min_money = stock_row['最低必要額'].iloc[0]
+                else:
+                    min_money = float(stock_row['最低必要額'].iloc[0]) / float(stock_row['通常最低保有株数'].iloc[0]) * float(stock_row['長期最低保有株数'].iloc[0])
+
+                yutai_message += f"長期優待:\n 優待商品/{stock_row['長期優待商品'].iloc[0]}\n 年数/{stock_row['最低保有年数'].iloc[0]}年 必要株数/{int(stock_row['長期最低保有株数'].iloc[0])}株 必要額/{min_money}万円 利回り/{stock_row['通常利回り'].iloc[0]}\n"
+            else:
+                yutai_message += '長期優待: なし\n'
+
+            if not pd.isna(stock_row['備考'].iloc[0]):
+                yutai_message += f"備考:\n{stock_row['備考'].iloc[0]}\n"
+        except Exception as e:
+            self.log.error(f'優待補完情報メッセージ作成処理でエラー 証券コード: {stock_code}\n{e}\n{traceback.format_exc()}')
+
+        return yutai_message
 
     def test(self):
         '''テスト用コード'''
