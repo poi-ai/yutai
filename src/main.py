@@ -449,9 +449,9 @@ class Main():
                 if pd.isna(stock_row['通常最低保有株数'].iloc[0]):
                     min_money = stock_row['最低必要額'].iloc[0]
                 else:
-                    min_money = float(stock_row['最低必要額'].iloc[0]) / float(stock_row['通常最低保有株数'].iloc[0]) * float(stock_row['長期最低保有株数'].iloc[0])
+                    min_money = round(float(stock_row['最低必要額'].iloc[0]) / float(stock_row['通常最低保有株数'].iloc[0]) * float(stock_row['長期最低保有株数'].iloc[0]), 2)
 
-                yutai_message += f"長期優待:\n 優待商品/{stock_row['長期優待商品'].iloc[0]}\n 年数/{stock_row['最低保有年数'].iloc[0]}年 必要株数/{int(stock_row['長期最低保有株数'].iloc[0])}株 必要額/{min_money}万円 利回り/{stock_row['通常利回り'].iloc[0]}\n"
+                yutai_message += f"長期優待:\n 優待商品/{stock_row['長期優待商品'].iloc[0]}\n 年数/{stock_row['最低保有年数'].iloc[0]}年 必要株数/{int(stock_row['長期最低保有株数'].iloc[0])}株 必要額/{min_money}万円 利回り/{stock_row['長期利回り'].iloc[0]}\n"
             else:
                 yutai_message += '長期優待: なし\n'
 
