@@ -12,7 +12,7 @@ class Check(Main):
         self.kabucom_error_count = 0
         self.smbc_error_count = 0
 
-    def main(self, stock_code):
+    def main(self, stock_code_list):
 
         self.log.info('カブコム/SMBC在庫補充処理チェック処理開始')
         # 在庫残を取得する
@@ -39,53 +39,56 @@ class Check(Main):
             time_difference = (now + timedelta(minutes = 1)).replace(second = 0, microsecond = 0) - now
             time.sleep((time_difference.total_seconds() * 10**6) / 10**6)
 
-            # SMBCから一般信用残の取得
-            if self.smbc_session != False and self.smbc_error_count < 3 and not self.smbc_maintenance(now):
-                soup = self.smbc.get.order_input(self.smbc_session, stock_code)
-                # 成功チェック
-                if soup == False:
-                    self.smbc_session = False
-                    self.smbc_error_count += 1.0
-                    if self.smbc_error_count >= 3:
-                        self.log.info('SMBCエラーカウント超過のため終了します')
-                else:
-                    try:
-                        stock_num_html = soup.find('td', id='iurikanosu').text
-                        stock_num = re.sub(r'[株, ]|\r|\n', '', stock_num_html)
-                        self.log.info(f'SMBC/({stock_code})在庫数: {stock_num}')
-                        self.smbc_error_count -= 0.1
-                    except Exception as e:
-                        self.log.error('SMBC/在庫数HTML切り出し処理でエラー')
+            # 1銘柄ごとに取得処理の開始
+            for stock_code in stock_code_list:
+                # SMBCから一般信用残の取得
+                if self.smbc_session != False and self.smbc_error_count < 3 and not self.smbc_maintenance(now):
+                    soup = self.smbc.get.order_input(self.smbc_session, stock_code)
+                    # 成功チェック
+                    if soup == False:
                         self.smbc_session = False
                         self.smbc_error_count += 1.0
                         if self.smbc_error_count >= 3:
                             self.log.info('SMBCエラーカウント超過のため終了します')
+                    else:
+                        try:
+                            stock_num_html = soup.find('td', id='iurikanosu').text
+                            stock_num = re.sub(r'[株, ]|\r|\n', '', stock_num_html)
+                            self.log.info(f'SMBC/({stock_code})在庫数: {stock_num}')
+                            self.smbc_error_count -= 0.1
+                        except Exception as e:
+                            self.log.error('SMBC/在庫数HTML切り出し処理でエラー')
+                            self.smbc_session = False
+                            self.smbc_error_count += 1.0
+                            if self.smbc_error_count >= 3:
+                                self.log.info('SMBCエラーカウント超過のため終了します')
 
-            # カブコムから一般信用残の取得
-            if self.kabucom_session != False and self.kabucom_error_count < 3:
-                soup = self.kabucom.get.order_input(self.kabucom_session, stock_code)
-                # 成功チェック
-                if soup == False:
-                    self.kabucom_session == False
-                    self.kabucom_error_count += 1.0
-                    if self.kabucom_error_count >= 3:
-                        self.log.info('カブコムエラーカウント超過のため終了します')
-                else:
-                    try:
-                        table_max, table_soup = 2000, ''
-                        for table in soup.find_all('table'):
-                            if '一般信用売建可能数量(在庫株数量)' in table.text:
-                                if table_max > len(str(table)):
-                                    table_max = len(str(table))
-                                    table_soup = table
-                        self.log.info(f'カブコム/({stock_code})在庫数: {table_soup.find_all("td")[2].text}')
-                        self.kabucom_error_count -= 0.1
-                    except Exception as e:
-                        self.log.error('カブコム/在庫数HTML切り出し処理でエラー')
+                # カブコムから一般信用残の取得
+                if self.kabucom_session != False and self.kabucom_error_count < 3:
+                    soup = self.kabucom.get.order_input(self.kabucom_session, stock_code)
+                    # 成功チェック
+                    if soup == False:
                         self.kabucom_session == False
                         self.kabucom_error_count += 1.0
                         if self.kabucom_error_count >= 3:
                             self.log.info('カブコムエラーカウント超過のため終了します')
+                    else:
+                        try:
+                            table_max, table_soup = 2000, ''
+                            for table in soup.find_all('table'):
+                                if '一般信用売建可能数量(在庫株数量)' in table.text:
+                                    if table_max > len(str(table)):
+                                        table_max = len(str(table))
+                                        table_soup = table
+                            self.log.info(f'カブコム/({stock_code})在庫数: {table_soup.find_all("td")[2].text}')
+                            self.kabucom_error_count -= 0.1
+                        except Exception as e:
+                            self.log.error('カブコム/在庫数HTML切り出し処理でエラー')
+                            self.kabucom_session == False
+                            self.kabucom_error_count += 1.0
+                            if self.kabucom_error_count >= 3:
+                                self.log.info('カブコムエラーカウント超過のため終了します')
+                time.sleep(1)
 
     def kabucom_login(self):
         self.log.info('auカブコム証券ログイン開始')
@@ -107,6 +110,7 @@ class Check(Main):
         return False
 
 if __name__ == '__main__':
-    target_stock_code = 2730
+    target_stock_code_list = [2730,3175,8207,1780,9675,7412,7421,4765,7416,4679,8025,9475,8285,3275,7554,3157,5821,7413,9663,1420,3166,3173,2922,9078,9130]
+    #target_stock_code_list = []
     c = Check()
-    c.main(str(target_stock_code))
+    c.main(target_stock_code_list)
