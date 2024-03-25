@@ -1,4 +1,6 @@
+import config
 import csv
+import ntplib
 import time
 import re
 from main import Main
@@ -178,6 +180,11 @@ class Steal(Main):
             self.log.info('一般信用在庫が足りないため注文できません')
             return 4
 
+        # 空売り規制チェック
+        if 'NOL51163E' in soup_text:
+            self.log.info('取引規制中のため注文できません')
+            return 1
+
         # 注文用のトークンID/URLIDの取得
         try:
             token_id = soup.find('input', {'name': 'tokenId'}).get('value')
@@ -204,7 +211,8 @@ class Steal(Main):
             self.log.error('不明なエラーです')
             return 2
 
-        self.log.info(f'注文が完了しました 証券コード: {stock_code}')
+        self.log.info(f'注文が完了しました 証券コード: {stock_code} 株数: {num}')
+        self.output.line(f'注文が完了しました 証券コード: {stock_code} 株数: {num}', config.LINE_NOTIFY_API_KEY)
 
         return 1
 
@@ -235,7 +243,7 @@ class Steal(Main):
 
         # 大引け後注文中断時間(15:00~16:58)なら16:59まで待つ
         if now.hour == 15 or (now.hour == 16 and now.minute < 59):
-            target_hour, target_minute = 15, 59
+            target_time = datetime(now.year, now.month, now.day, 16, 59)
 
         # 16:59なら17:00まで待つ
         elif now.hour == 16 and now.minute == 59:
@@ -261,7 +269,7 @@ class Steal(Main):
         else:
             return True
 
-        target_time = datetime(now.year, now.month, now.day, target_hour, target_minute)
+        self.log.info(f'wait {(target_time - self.ntp()).total_seconds() * 1e6 / 1e6}s...')
         time.sleep((target_time - self.ntp()).total_seconds() * 1e6 / 1e6)
 
         return True
@@ -288,6 +296,12 @@ class Steal(Main):
             return False, e
 
         return True, steal_list
+
+    def ntp(self):
+        '''NTPサーバーから現在の時刻を取得する'''
+        c = ntplib.NTPClient()
+        response = c.request('ntp.jst.mfeed.ad.jp', version=3)
+        return datetime.fromtimestamp(response.tx_time)
 
 if __name__ == '__main__':
     s = Steal()
