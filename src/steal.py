@@ -36,7 +36,7 @@ class Steal(Main):
             # 5:00ジャストの場合のみ5:01までログインを試す
             while self.smbc_session == False:
                 now = datetime.now()
-                if now.hours == 5 and now.minutes == 0:
+                if now.hour == 5 and now.minute == 0:
                     time.sleep(1)
                     self.log.info('SMBC日興証券再ログイン開始')
                     self.smbc_session = self.smbc.login.login()
@@ -113,14 +113,14 @@ class Steal(Main):
                     now = datetime.now()
                     # メンテナンス/取引再開直後の場合は再チェックする
                     if (now.hour in [5, 17] and now.minute <= 1) or (now.hour in 20 and 20 <= now.minute <= 21):
-                        # メンテ時間以外の表示が出るまでループチェック
+                        # メンテ時間か不明なエラー(混雑)以外の表示が出るまでループチェック
                         while True:
-                            time.sleep(1)
+                            time.sleep(0.5)
                             self.log.info(f'在庫チェック/注文を行います 証券コード: {target[0]}, 株数: {target[1]}')
                             result = self.order_exec(target)
                             self.log.info(f'在庫チェック/注文処理終了 証券コード: {target[0]}, 株数: {target[1]}')
                             # エラーが出なくなったらループ終了
-                            if result != 3:
+                            if result != 2 and result != 3:
                                 # 最低限の対処として注文成功時に複数回注文されないようにはしておく
                                 if result == 1:
                                     tmp_list = [sublist for sublist in tmp_list if sublist[0] != target[0]]
@@ -165,10 +165,10 @@ class Steal(Main):
             self.log.warning('メンテナンス中のため注文できません')
             return 3
 
-        # 取扱チェック
+        # 取扱チェック TODO 制度でも在庫入るっぽい?要検証
         if 'NOL51305E' in soup_text:
             self.log.warning('一般信用非取扱銘柄のため注文できません')
-            return 1
+            return 4
 
         # 余力チェック
         if 'NOL51015E' in soup_text:
@@ -233,7 +233,7 @@ class Steal(Main):
 
         # メンテナンス時間(4:00~4:59)なら5:00まで待つ
         if now.hour == 4:
-            target_hour, target_minute = 5, 0
+            target_time = datetime(now.year, now.month, now.day, 5, 0)
             # 争奪戦用にリミッター解除
             self.limiter = False
 
@@ -261,8 +261,8 @@ class Steal(Main):
             # 争奪戦用にリミッター解除
             self.limiter = False
 
-        # ザラ場中(昼休み含む)なら(一旦)処理を行わない TODO いずれ場中でも注文できるように修正する
-        elif 9 <= now.hour <= 15:
+        # ザラ場直前・場中・昼休みは処理を行わない TODO いずれ場中でも注文できるように修正する
+        elif (now.hour == 8 and now.minute > 50) or 9 <= now.hour <= 15:
             self.log.info('取引時間中のため監視/注文処理は行いません')
             return False
 
