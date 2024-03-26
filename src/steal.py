@@ -221,6 +221,7 @@ class Steal(Main):
         '''時間調整を行う'''
         # 時間取得
         now = datetime.now()
+        target_time = False
 
         ## 全日共通時間判定
 
@@ -237,8 +238,8 @@ class Steal(Main):
             # 争奪戦用にリミッター解除
             self.limiter = False
 
-        ## 営業日の時間判定
-        if now.weekday in [5, 6]:
+        ## 非営業日判定
+        if now.weekday in [5, 6] and target_time == False:
             return True
 
         # 大引け後注文中断時間(15:00~16:58)なら16:59まで待つ
@@ -266,7 +267,7 @@ class Steal(Main):
             self.log.info('取引時間中のため監視/注文処理は行いません')
             return False
 
-        else:
+        elif target_time == False:
             return True
 
         self.log.info(f'wait {(target_time - self.ntp()).total_seconds() * 1e6 / 1e6}s...')
