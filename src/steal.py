@@ -239,7 +239,7 @@ class Steal(Main):
             self.limiter = False
 
         ## 非営業日判定
-        if now.weekday in [5, 6] and target_time == False:
+        if now.weekday() in [5, 6] and target_time == False:
             return True
 
         # 大引け後注文中断時間(15:00~16:58)なら16:59まで待つ
