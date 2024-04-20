@@ -134,7 +134,7 @@ class Log():
                     os.remove(log_path.group(1))
 
         # フォーマットの設定
-        formatter = logging.Formatter(f'%(asctime)s {self.filename.rjust(2, " ")} -  [%(levelname)s] %(message)s')
+        formatter = logging.Formatter(f'%(asctime)s ({os.getpid()})-  [%(levelname)s] %(message)s')
 
         # 出力レベルの設定
         self.logger.setLevel(logging.INFO)
