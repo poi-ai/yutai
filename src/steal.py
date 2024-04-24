@@ -112,9 +112,9 @@ class Steal(Main):
                 elif result == 3:
                     now = datetime.now()
                     # メンテナンス/取引再開直後の場合は再チェックする
-                    if (now.hour in [5, 17] and now.minute <= 1) or (now.hour in 20 and 20 <= now.minute <= 21):
+                    if (now.hour in [5, 17] and now.minute <= 1) or (now.hour == 20 and 20 <= now.minute <= 21):
                         # メンテ時間か不明なエラー(混雑)以外の表示が出るまでループチェック
-                        while (now.hour in [5, 17] and now.minute <= 1) or (now.hour in 20 and 20 <= now.minute <= 21):
+                        while (now.hour in [5, 17] and now.minute <= 1) or (now.hour == 20 and 20 <= now.minute <= 21):
                             time.sleep(0.5)
                             self.log.info(f'在庫チェック/注文を行います 証券コード: {target[0]}, 株数: {target[1]}')
                             result = self.order_exec(target)
