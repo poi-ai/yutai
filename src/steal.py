@@ -113,12 +113,19 @@ class Steal(Main):
                     now = datetime.now()
                     # メンテナンス/取引再開直後の場合は再チェックする
                     if (now.hour in [5, 17] and now.minute <= 1) or (now.hour == 20 and 20 <= now.minute <= 21):
+                        now = datetime.now()
                         # メンテ時間か不明なエラー(混雑)以外の表示が出るまでループチェック
                         while (now.hour in [5, 17] and now.minute <= 1) or (now.hour == 20 and 20 <= now.minute <= 21):
                             time.sleep(0.5)
                             self.log.info(f'在庫チェック/注文を行います 証券コード: {target[0]}, 株数: {target[1]}')
                             result = self.order_exec(target)
                             self.log.info(f'在庫チェック/注文処理終了 証券コード: {target[0]}, 株数: {target[1]}')
+                            time.sleep(0.5)
+                            # ログイン情報関係のエラーならログインしなおし
+                            if result == 2:
+                                self.log.info('SMBC日興証券再ログイン開始')
+                                self.smbc_session = self.smbc.login.login()
+                                self.log.info('SMBC日興証券再ログイン終了')
                             # エラーが出なくなったらループ終了
                             if result != 2 and result != 3:
                                 # 最低限の対処として注文成功時に複数回注文されないようにはしておく
