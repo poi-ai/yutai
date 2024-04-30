@@ -229,6 +229,8 @@ class Steal(Main):
         # 時間取得
         now = datetime.now()
         target_time = False
+        # 調整用秒数(SMBCは0秒ぴったりで動かないことが多い)
+        add_time = 0
 
         ## 全日共通時間判定
 
@@ -242,6 +244,8 @@ class Steal(Main):
         # メンテナンス時間(4:00~4:59)なら5:00まで待つ
         if now.hour == 4:
             target_time = datetime(now.year, now.month, now.day, 5, 0)
+            # 5時の場合は45秒くらいまでメンテが明けないので40秒まで待機
+            add_time = 40
             # 争奪戦用にリミッター解除
             self.limiter = False
 
@@ -277,8 +281,10 @@ class Steal(Main):
         elif target_time == False:
             return True
 
-        self.log.info(f'wait {(target_time - self.ntp()).total_seconds() * 1e6 / 1e6}s...')
-        time.sleep((target_time - self.ntp()).total_seconds() * 1e6 / 1e6)
+        wait_time = (target_time - self.ntp()).total_seconds() + add_time
+
+        self.log.info(f'wait {wait_time}s...')
+        time.sleep(wait_time)
 
         return True
 
