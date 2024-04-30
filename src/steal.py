@@ -197,6 +197,16 @@ class Steal(Main):
             token_id = soup.find('input', {'name': 'tokenId'}).get('value')
             url_match = re.search(r'OdrMng/(.+)/sinyo/tku_odr/exec', str(soup))
             url_id = url_match.groups()[0]
+        except AttributeError:
+            self.log.error(f'不明なエラーです\n{e}')
+            ### デバッグ用
+            current_time = datetime.now().strftime("%Y%m%d%H%M%S%f")
+            file_name = f"{current_time}.text"
+            with open(file_name, "w") as file:
+                file.write(soup)
+            
+            ### デバッグ用ここまで
+            return 2
         except Exception as e:
             self.log.error(f'不明なエラーです\n{e}')
             return 2
