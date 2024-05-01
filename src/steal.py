@@ -203,8 +203,7 @@ class Steal(Main):
             current_time = datetime.now().strftime("%Y%m%d%H%M%S%f")
             file_name = f"{current_time}.text"
             with open(file_name, "w") as file:
-                file.write(soup)
-            
+                file.write(str(soup))
             ### デバッグ用ここまで
             return 2
         except Exception as e:
