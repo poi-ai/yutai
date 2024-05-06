@@ -3,6 +3,7 @@ import csv
 import ntplib
 import time
 import re
+import holiday
 from main import Main
 from datetime import datetime
 
@@ -197,21 +198,22 @@ class Steal(Main):
             token_id = soup.find('input', {'name': 'tokenId'}).get('value')
             url_match = re.search(r'OdrMng/(.+)/sinyo/tku_odr/exec', str(soup))
             url_id = url_match.groups()[0]
-        except AttributeError:
-            self.log.error(f'不明なエラーです\n{e}')
-            ### デバッグ用
-            current_time = datetime.now().strftime("%Y%m%d%H%M%S%f")
-            file_name = f"{current_time}.text"
-            with open(file_name, "w") as file:
-                file.write(str(soup))
-            ### デバッグ用ここまで
-            return 2
         except Exception as e:
             self.log.error(f'不明なエラーです\n{e}')
             return 2
 
+        # 注文日を設定
+        now = datetime.now()
+
+        # 15時前なら当日注文、以降なら翌営業日注文
+        if now.hour < 15:
+            order_date = now.strftime("%Y%m%d")
+        else:
+            # TODO エラー時の対応
+            order_date = holiday.next_exchange_workday(now).strftime("%Y%m%d")
+
         # 注文リクエストを送る
-        result, soup = self.smbc.order.order(self.smbc_session, stock_code, num, token_id, url_id)
+        result, soup = self.smbc.order.order(self.smbc_session, stock_code, num, token_id, url_id, order_date)
         if result == False:
             return 2
 
@@ -220,6 +222,11 @@ class Steal(Main):
         # パスワードチェック
         if 'NOL76511E' in soup_text:
             self.log.error('パスワードが正しくありません')
+            return -1
+
+        # 注文執行日エラー
+        if 'NOL21018E' in soup_text:
+            self.log.error('注文執行日が正しくありません')
             return -1
 
         # 注文完了チェック
@@ -258,8 +265,8 @@ class Steal(Main):
             # 争奪戦用にリミッター解除
             self.limiter = False
 
-        ## 非営業日判定
-        if now.weekday() in [5, 6] and target_time == False:
+        ## 非営業日ならこれ以上チェックはしない
+        if not holiday.is_exchange_workday(now):
             return True
 
         # 大引け後注文中断時間(15:00~16:58)なら16:59まで待つ

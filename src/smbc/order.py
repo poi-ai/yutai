@@ -74,7 +74,7 @@ class Order():
 
         return True, soup
 
-    def order(self, session, stock_code, num, token_id, url_id):
+    def order(self, session, stock_code, num, token_id, url_id, order_date):
         '''
         一般信用売り注文リクエストを送る
 
@@ -84,6 +84,7 @@ class Order():
             num(int): 発注数量
             token_id(str): トークンID(注文確認画面で発行)
             url_id(str): URL ID(注文確認画面で発行)
+            order_date(str): 注文日(yyyymmdd形式)
 
         Returns:
             result(bool): 実行結果
@@ -100,7 +101,7 @@ class Order():
             'nariSasiKbn': '2',
             'kakaku': '',
             'suryo': num,
-            'odrExecYmd': self.next_weekday(),         # 注文日
+            'odrExecYmd': order_date,                  # 注文日
             'expcheck': '0',
             'yukoSiteDate': '1',
             'yukokigenDate': '',                       # 注文有効期間
