@@ -13,13 +13,15 @@ class Get():
         '''
         self.log = log
 
-    def stock_num(self, session, page_no = 1):
+    def stock_num(self, session, page_no = '1', output_type = '0'):
         '''
         SMBC日興証券の一般信用売の在庫数を取得する
 
         Args:
             session(requests.sessions.Session): ログイン状態のセッション
-            page_num: ページ番号
+            page_num(int or str): ページ番号
+            output_type(int or str): 銘柄コードの上1桁で絞り込むか
+                0: 絞り込みをしない、1: 1000番台のみ表示、2: 2000番台のみ表示...
 
         Returns:
             stock_list(list[dict{},dict{}...]): 各銘柄の一般信用売在庫情報
@@ -30,24 +32,24 @@ class Get():
         '''
 
         # 検索対象の絞り込み
-        # 基本的には一般信用売しか見ないので、ページ数以外のパラメータは固定(必要になったら拡張)
+        # 基本的には一般信用売しか見ないので、ページ数・証券コード上1桁絞り込み以外のパラメータは固定(必要になったら拡張)
         search_info = {
             'search': '1',
-            'searchmeig': '',       # 銘柄名・銘柄コード検索ワード
-            'seidokai': '0',        # 制度信用買がある銘柄
-            'seidouri': '0',        # 制度信用売がある銘柄
-            'ipankai': '0',         # 一般信用買がある銘柄
-            'ipanuri': '1',         # 一般信用売がある銘柄
-            'tse1': '1',            # 東証プライムの銘柄
-            'tse2': '1',            # 東証スタンダードの銘柄
-            'tse3': '1',            # 東証グロースの銘柄
-            'nse1': '1',            # 名証プレミアの銘柄
-            'nse2': '1',            # 名証メインの銘柄
-            'nse3': '1',            # 名証ネクストの銘柄
-            'bottonSyubetu': '1',   # 並び順、1: 銘柄コード順、2: 銘柄名順
-            'meigCdJyun': '0',      # 銘柄コード順の場合、全銘柄かx000番台のみ表示か。0: 全銘柄、1: 1000番台、...
-            'meigNmJyun': '0',      # 銘柄名順の場合、全銘柄かあ行のみ表示か。0: 全銘柄、1: あ行、2:か行、...11: その他
-            'pageno': page_no       # ページ番号
+            'searchmeig': '',                 # 銘柄名・銘柄コード検索ワード
+            'seidokai': '0',                  # 制度信用買がある銘柄
+            'seidouri': '0',                  # 制度信用売がある銘柄
+            'ipankai': '0',                   # 一般信用買がある銘柄
+            'ipanuri': '1',                   # 一般信用売がある銘柄
+            'tse1': '1',                      # 東証プライムの銘柄
+            'tse2': '1',                      # 東証スタンダードの銘柄
+            'tse3': '1',                      # 東証グロースの銘柄
+            'nse1': '1',                      # 名証プレミアの銘柄
+            'nse2': '1',                      # 名証メインの銘柄
+            'nse3': '1',                      # 名証ネクストの銘柄
+            'bottonSyubetu': '1',             # 並び順、1: 銘柄コード順、2: 銘柄名順
+            'meigCdJyun': str(output_type),   # 銘柄コード順の場合、全銘柄かx000番台のみ表示か。0: 全銘柄、1: 1000番台、...
+            'meigNmJyun': '0',                # 銘柄名順の場合、全銘柄かあ行のみ表示か。0: 全銘柄、1: あ行、2:か行、...11: その他
+            'pageno': page_no                 # ページ番号
         }
 
         try:
@@ -89,20 +91,21 @@ class Get():
 
                         stock_info = {}
                         tds = tr.find_all('td')
-                        stock_info['stock_code'] = int(tds[0].text.replace('\n', '').replace('\t', '').replace('\r', ''))
+                        stock_info['stock_code'] = tds[0].text.replace('\n', '').replace('\t', '').replace('\r', '')
                         stock_info['stock_name'] = tds[1].text.replace('\n', '').replace('\u3000', '')
                         stock_info['stock_num'] = int(tds[6].text.replace('株', '').replace(',', '').replace('-', '-1').replace('\n', ''))
                         stock_list.append(stock_info)
 
         return stock_list
 
-    def subject_num(self, session):
+    def subject_num(self, session, output_type = '0'):
         '''
         在庫取得対象の件数／ページ数を取得する
 
         Args:
             session(requests.sessions.Session): ログイン状態のセッション
-            page_num: ページ番号
+            output_type(int or str): 証券コードの上1桁で絞り込むか
+                0: 絞り込みをしない、1: 1000番台のみ表示、2: 2000番台のみ表示...
 
         Returns:
             total_num(int): 対象件数
@@ -111,24 +114,24 @@ class Get():
         '''
 
         # 検索対象の絞り込み
-        # 基本的には一般信用売しか見ないので、ページ数以外のパラメータは固定(必要になったら拡張)
+        # 現在使えるフィルタリングは証券コードの上1桁の数値。必要になればフィルタリング可能条件を拡張する
         search_info = {
             'search': '1',
-            'searchmeig': '',       # 銘柄名・銘柄コード検索ワード
-            'seidokai': '0',        # 制度信用買がある銘柄
-            'seidouri': '0',        # 制度信用売がある銘柄
-            'ipankai': '0',         # 一般信用買がある銘柄
-            'ipanuri': '1',         # 一般信用売がある銘柄
-            'tse1': '1',            # 東証プライムの銘柄
-            'tse2': '1',            # 東証スタンダードの銘柄
-            'tse3': '1',            # 東証グロースの銘柄
-            'nse1': '1',            # 名証プレミアの銘柄
-            'nse2': '1',            # 名証メインの銘柄
-            'nse3': '1',            # 名証ネクストの銘柄
-            'bottonSyubetu': '1',   # 並び順、1: 銘柄コード順、2: 銘柄名順
-            'meigCdJyun': '0',      # 銘柄コード順の場合、全銘柄かx000番台のみ表示か。0: 全銘柄、1: 1000番台、...
-            'meigNmJyun': '0',      # 銘柄名順の場合、全銘柄かあ行のみ表示か。0: 全銘柄、1: あ行、2:か行、...11: その他
-            'pageno': '1'           # ページ番号
+            'searchmeig': '',                # 銘柄名・銘柄コード検索ワード
+            'seidokai': '0',                 # 制度信用買がある銘柄
+            'seidouri': '0',                 # 制度信用売がある銘柄
+            'ipankai': '0',                  # 一般信用買がある銘柄
+            'ipanuri': '1',                  # 一般信用売がある銘柄
+            'tse1': '1',                     # 東証プライムの銘柄
+            'tse2': '1',                     # 東証スタンダードの銘柄
+            'tse3': '1',                     # 東証グロースの銘柄
+            'nse1': '1',                     # 名証プレミアの銘柄
+            'nse2': '1',                     # 名証メインの銘柄
+            'nse3': '1',                     # 名証ネクストの銘柄
+            'bottonSyubetu': '1',            # 並び順、1: 銘柄コード順、2: 銘柄名順
+            'meigCdJyun': str(output_type),  # 銘柄コード順の場合、全銘柄かx000番台のみ表示か。0: 全銘柄、1: 1000番台、...
+            'meigNmJyun': '0',               # 銘柄名順の場合、全銘柄かあ行のみ表示か。0: 全銘柄、1: あ行、2:か行、...11: その他
+            'pageno': '1'                    # ページ番号
         }
 
         try:
@@ -150,6 +153,7 @@ class Get():
 
         # 検索した銘柄が存在しない場合
         if '現在お取扱中の銘柄はございません。' in soup.text:
+            self.log.info('対象銘柄は存在しませんでした')
             return 0, 0
 
         # 件数取得

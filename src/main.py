@@ -118,7 +118,7 @@ class Main():
                     self.log.error('銘柄コードが正しくありません')
 
                 # 注文処理
-                self.smbc_order(sys.argv[3])
+                #self.smbc_order(sys.argv[3])
                 exit()
 
             # 実行処理の設定が不正
@@ -152,7 +152,7 @@ class Main():
         if stock_csv == False:
             return False
 
-        ''' CSVが出力がなくなった場合は下記を使用する
+        ''' CSVが出力ができなくなった場合は下記のページ送りでのチェック方法を使用する
         # 対象件数取得
         self.log.info(f'対象件数取得開始')
         total_num, pages = self.kabucom.get.subject_num(session)
@@ -305,6 +305,7 @@ class Main():
 
     def smbc_record(self):
         '''SMBC日興証券の一般在庫情報の取得／CSV出力'''
+
         # ログイン
         self.log.info('SMBC日興証券ログイン開始')
         session = self.smbc.login.login()
@@ -355,7 +356,93 @@ class Main():
         # 設定データのチェック
         self.notice_check()
 
-        # TODO 取得処理
+        # 対象銘柄の証券コードを一つのリストにまとめる
+        mix_code_list = {code: None for code in config.FIRST_TARGET_STOCK_CODE_LIST + config.SECOND_TARGET_STOCK_CODE_LIST + config.THIRD_TARGET_STOCK_CODE_LIST}
+
+        # ログイン
+        self.log.info('SMBC日興証券ログイン開始')
+        session = self.smbc.login.login()
+        if session == False:
+            return False
+        self.log.info('SMBC日興証券ログイン終了')
+
+        time.sleep(2)
+
+        self.log.info('SMBC日興証券一般在庫取得開始')
+
+        # 証券コードの上1桁の値ごとに処理を行う
+        for top_num in range(1, 10):
+            # 取得対象の中に上1桁がtop_numのものが何個存在するか
+            target_count = sum(1 for item in [str(code)[0] for code in list(mix_code_list.keys())] if str(item) == str(top_num))
+
+            # なければチェックの必要がないのでスキップ
+            if target_count == 0:
+                continue
+
+            # 上1桁が一致する取得対象のコードで辞書順で一番最後値を取得する
+            max_code = str(sorted([str(code) for code in list(mix_code_list.keys()) if str(code)[0] == str(top_num)])[-1])
+
+            # ページ数取得
+            self.log.info(f'ページ数取得開始')
+            total_num, pages = self.smbc.get.subject_num(session, output_type = str(top_num))
+            if total_num == False:
+                return False
+            self.log.info(f'ページ数取得終了 証券コードの上1桁: {top_num} 、全{pages}ページ')
+
+            time.sleep(2)
+
+            # ページことに処理
+            for page in range(1, pages + 1):
+                # 一般在庫情報取得
+                self.log.info(f'{page}ページ目取得開始')
+                stock_list = self.smbc.get.stock_num(session, page_no = page, output_type = top_num)
+
+                # 取得失敗
+                if stock_list == False or len(stock_list) == 0:
+                    self.log.info(f'{page}ページ目取得失敗')
+                    continue
+
+                self.log.info(f'{page}ページ目取得終了')
+
+                # 取得情報がない(=取得するデータがこれ以上ない)
+                if stock_list == []:
+                    continue
+
+                # 取得対象の銘柄コードの情報が含まれているかチェックし、含まれていたら連想配列の値として設定
+                for code in mix_code_list.keys():
+                    result = [stock for stock in stock_list if stock['stock_code'] == str(code)]
+                    if len(result) != 0:
+                        mix_code_list[code] = result[0]
+
+                time.sleep(2)
+
+                # ページの最後の銘柄が対象銘柄の値よりも大きいか(=これ以降のページに取得対象は存在しないか)
+                if stock_list[-1]['stock_code'] >= max_code:
+                    break
+
+        self.log.info('SMBC日興証券一般在庫取得終了')
+
+        # 在庫情報のLINE通知
+        self.log.info('SMBC日興証券一般在庫LINE通知処理開始')
+        message = ''
+        for code in mix_code_list.keys():
+            if mix_code_list[code] == None:
+                message += f'証券コード: {(code)} の在庫データがありません\n'
+            else:
+                stock = mix_code_list[code]
+                message += f"({stock['stock_code']}){stock['stock_name']} 在庫数:{stock['stock_num']}株\n"
+
+        # 1000文字を超える場合は分割(念のため990文字ごとに)
+        notice_message_list = [message[i:i + 990] for i in range(0, len(message), 990)]
+
+        # 分割したものを一つずつ送信
+        for message in notice_message_list:
+            # LINEで送信
+            result, error_message = self.output.line(message, self.line_token)
+            if result == False:
+                self.log.error(error_message)
+
+        self.log.info('SMBC日興証券一般在庫LINE通知処理終了')
 
     def smbc_order(self, stock_code):
         '''SMBC日興証券で一般空売りの注文を行う'''
@@ -368,17 +455,17 @@ class Main():
 
         self.log.info('SMBC日興証券一般空売り注文開始')
 
-        # TODO 確認画面を経由する必要がある場合 飛ばせれば飛ばす
+        # TODO いろいろ足りてないのでそのままは使えない 呼び出し先のメソッドは使えるのでそれに合わせた形に
         session = self.smbc.order.confirm(session, stock_code)
         if session == False:
             return False
-        self.log.info('SMBC日興証券ログイン終了')
+        #self.log.info('SMBC日興証券ログイン終了')
 
-        # TODO 注文リクエスト処理
+        # TODO 注文リクエスト処理 こっちもいろいろ足りてない
         session = self.smbc.order.order(session, stock_code)
         if session == False:
             return False
-        self.log.info('SMBC日興証券一般空売り注文開始')
+        self.log.info('SMBC日興証券一般空売り注文終了')
 
     def notice_check(self):
         '''対象銘柄の在庫情報をLINE通知に送る処理についてデータのチェックを行う'''
