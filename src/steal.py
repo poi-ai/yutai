@@ -109,29 +109,46 @@ class Steal(Main):
 
                     # TODO 不明なエラーが続いた場合の処理も必要
 
-                # 時間調整が必要なエラー(メンテナンス時間中エラー)
+                # メンテナンス時間中のエラー
                 elif result == 3:
                     now = datetime.now()
-                    # メンテナンス/取引再開直後の場合は再チェックする
+                    # ただしメンテナンスが明けているはずの時間の場合は再チェックする
                     if (now.hour in [5, 17] and now.minute <= 1) or (now.hour == 20 and 20 <= now.minute <= 21):
+                        login_flag = False
                         now = datetime.now()
-                        # メンテ時間か不明なエラー(混雑)以外の表示が出るまでループチェック
+                        # メンテ時間エラーか取引時間外エラーの表示が出るまでループチェック
                         while (now.hour in [5, 17] and now.minute <= 1) or (now.hour == 20 and 20 <= now.minute <= 21):
-                            time.sleep(0.5)
                             self.log.info(f'在庫チェック/注文を行います 証券コード: {target[0]}, 株数: {target[1]}')
                             result = self.order_exec(target)
-                            self.log.info(f'在庫チェック/注文処理終了 証券コード: {target[0]}, 株数: {target[1]}')
-                            time.sleep(0.5)
-                            # ログイン情報関係のエラーならログインしなおし
+
+                            # 売り禁か注文成功の場合は対象銘柄から除外後ループから抜ける
+                            if result == 1:
+                                tmp_list = [sublist for sublist in tmp_list if sublist[0] != target[0]]
+                                break
+
+                            # ログイン情報関係エラーの場合ログインしなおし
                             if result == 2:
                                 self.log.info('SMBC日興証券再ログイン開始')
                                 self.smbc_session = self.smbc.login.login()
                                 self.log.info('SMBC日興証券再ログイン終了')
-                            # エラーが出なくなったらループ終了
-                            if result != 2 and result != 3:
-                                # 最低限の対処として注文成功時に複数回注文されないようにはしておく
-                                if result == 1:
-                                    tmp_list = [sublist for sublist in tmp_list if sublist[0] != target[0]]
+
+                            # メンテ中なら0.5秒待機
+                            elif result == 3:
+                                time.sleep(0.5)
+
+                            # 在庫不足なら正常に接続はできているのでループから抜ける
+                            elif result == 4:
+                                break
+
+                            # メンテ明けは強制的にセッションが切られるので再ログイン処理が必要
+                            elif result == 5 and login_flag == False:
+                                self.log.info('SMBC日興証券再ログイン開始')
+                                self.smbc_session = self.smbc.login.login()
+                                self.log.info('SMBC日興証券再ログイン終了')
+                                login_flag = True
+
+                            # 他,続行不可能エラー(-1)の場合などは一旦ループを抜けてループ外で処理させる
+                            else:
                                 break
 
                 if self.limiter:
@@ -155,7 +172,9 @@ class Steal(Main):
         Returns:
             error_type(str): エラータイプ
                 -1: 続行不可能なエラー、1: 監視対象から外すことが必要なエラー/注文成功
-                2: 再ログイン(セッション取得)が必要なエラー、3: メンテナンス中エラー、4: 何もしない
+                2: 再ログイン(セッション取得)が必要なエラー、3: メンテナンス中エラー、4: 在庫不足エラー、
+                5: 取引時間外エラー
+                ### TODO 不明なエラーを再ログインとして処理していいかは要検討
 
         '''
         stock_code = target[0]
@@ -168,45 +187,41 @@ class Steal(Main):
 
         soup_text = soup.text
 
-        # メンテナンスチェック
-        if 'NOL11001E' in soup_text:
-            self.log.warning('メンテナンス中のため注文できません')
-            return 3
-
-        # 取扱チェック TODO 制度でも在庫入るっぽい?要検証
-        if 'NOL51305E' in soup_text:
-            self.log.warning('一般信用非取扱銘柄のため注文できません')
-            return 4
-
         # 余力チェック
         if 'NOL51015E' in soup_text:
             self.log.warning('余力が足りないため注文できません')
             return 1
-
-        # 在庫チェック
-        if 'NOL75401E' in soup_text or 'NOL75400E' in soup_text:
-            self.log.info('一般信用在庫が足りないため注文できません')
-            return 4
 
         # 空売り規制チェック
         if 'NOL51163E' in soup_text:
             self.log.info('取引規制中のため注文できません')
             return 1
 
+        # メンテナンスチェック
+        if 'NOL11001E' in soup_text:
+            self.log.warning('メンテナンス中のため注文できません')
+            return 3
+
+        # 取扱チェック ここでの非取扱は東証ではなくSMBC側が指定したものなので、貸借銘柄でも出る
+        if 'NOL51305E' in soup_text:
+            self.log.warning('一般信用非取扱銘柄のため注文できません')
+            return 4
+
+        # 在庫チェック
+        if 'NOL75401E' in soup_text or 'NOL75400E' in soup_text:
+            self.log.info('一般信用在庫が足りないため注文できません')
+            return 4
+
+        # 取引時間外チェック
+        if 'NOL20001E' in soup_text:
+            self.log.info('取引時間外のため注文できません')
+            return 5
+
         # 注文用のトークンID/URLIDの取得
         try:
             token_id = soup.find('input', {'name': 'tokenId'}).get('value')
             url_match = re.search(r'OdrMng/(.+)/sinyo/tku_odr/exec', str(soup))
             url_id = url_match.groups()[0]
-        except AttributeError as att:
-            self.log.error(f'不明なエラーです\n{att}')
-            ### デバッグ用
-            current_time = datetime.now().strftime("%Y%m%d%H%M%S%f")
-            file_name = f"{current_time}.text"
-            with open(file_name, "w", encoding='utf-8') as file:
-                file.write(str(soup))
-            ### デバッグ用ここまで
-            return 2
         except Exception as e:
             self.log.error(f'不明なエラーです\n{e}')
             return 2
@@ -269,7 +284,7 @@ class Steal(Main):
         # メンテナンス時間(4:00~4:59)なら5:00まで待つ
         if now.hour == 4:
             target_time = datetime(now.year, now.month, now.day, 5, 0)
-            # 5時の場合は45秒くらいまでメンテが明けないので40秒まで待機
+            # 5時の場合は5:00:45くらいまでメンテが明けないので40秒まで待機
             add_time = 40
             # 争奪戦用にリミッター解除
             self.limiter = False
