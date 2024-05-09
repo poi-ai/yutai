@@ -147,7 +147,7 @@ class Log():
             if not os.path.exists(log_folder):
                 os.makedirs(log_folder)
             # 出力先を設定
-            handler = logging.FileHandler(filename = os.path.join(log_folder, f'{self.now().strftime("%Y%m")}.log'), encoding = 'utf-8')
+            handler = logging.FileHandler(filename = os.path.join(log_folder, f'{self.now().strftime("%Y%m%d")}.log'), encoding = 'utf-8')
             # 出力レベルを設定
             handler.setLevel(logging.INFO)
             # フォーマットの設定

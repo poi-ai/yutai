@@ -224,6 +224,12 @@ class Steal(Main):
             url_id = url_match.groups()[0]
         except Exception as e:
             self.log.error(f'不明なエラーです\n{e}')
+            ### デバッグ用
+            current_time = datetime.now().strftime("%Y%m%d%H%M%S%f")
+            file_name = f"{current_time}.text"
+            with open(file_name, "w", encoding='utf-8') as file:
+                file.write(str(soup))
+            ### デバッグ用ここまで
             return 2
 
         # 注文日を設定
@@ -284,8 +290,8 @@ class Steal(Main):
         # メンテナンス時間(4:00~4:59)なら5:00まで待つ
         if now.hour == 4:
             target_time = datetime(now.year, now.month, now.day, 5, 0)
-            # 5時の場合は5:00:45くらいまでメンテが明けないので40秒まで待機
-            add_time = 40
+            # 5;00の場合は5:00:45くらいまでメンテが明けないので30秒まで待機
+            add_time = 30
             # 争奪戦用にリミッター解除
             self.limiter = False
 
