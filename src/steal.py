@@ -353,9 +353,23 @@ class Steal(Main):
 
     def ntp(self):
         '''NTPサーバーから現在の時刻を取得する'''
-        c = ntplib.NTPClient()
-        response = c.request('ntp.jst.mfeed.ad.jp', version=3)
-        return datetime.fromtimestamp(response.tx_time)
+        try:
+            c = ntplib.NTPClient()
+            server = 'ntp.jst.mfeed.ad.jp' # stratum2
+            response = c.request(server, version = 3)
+            return datetime.fromtimestamp(response.tx_time)
+        except Exception as e:
+            self.log.error(f'NTPサーバーからの時刻取得処理に失敗しました サーバー: {server}\n{e}')
+            self.log.error(f'別のNTPサーバーから時刻取得を行います')
+
+            try:
+                c = ntplib.NTPClient()
+                server = 'time.cloudflare.com' # stratum3
+                response = c.request(server, version = 3)
+                return datetime.fromtimestamp(response.tx_time)
+            except Exception as e:
+                self.log.error(f'NTPサーバーからの時刻取得処理に失敗しました サーバー: {server}\n{e}')
+                raise # TODO ここの対応どうするか考える 今は一旦エラーとして落とす
 
 if __name__ == '__main__':
     s = Steal()
