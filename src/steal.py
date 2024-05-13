@@ -152,7 +152,7 @@ class Steal(Main):
                                 break
 
                 if self.limiter:
-                    time.sleep(3)
+                    time.sleep(10)
 
                 # 2周以上した場合はリミッターをかける
                 elif counter >= 2:
@@ -173,7 +173,7 @@ class Steal(Main):
             error_type(str): エラータイプ
                 -1: 続行不可能なエラー、1: 監視対象から外すことが必要なエラー/注文成功
                 2: 再ログイン(セッション取得)が必要なエラー、3: メンテナンス中エラー、4: 在庫不足エラー、
-                5: 取引時間外エラー
+                5: 取引時間外エラー、6: 過剰アクセスエラー
                 ### TODO 不明なエラーを再ログインとして処理していいかは要検討
 
         '''
@@ -216,6 +216,11 @@ class Steal(Main):
         if 'NOL20001E' in soup_text:
             self.log.info('取引時間外のため注文できません')
             return 5
+
+        # 過剰アクセスエラー
+        if 'NOL76980E' in soup_text:
+            self.log.warning('過剰アクセスのため注文できません')
+            return 6
 
         # 注文用のトークンID/URLIDの取得
         try:
