@@ -1,6 +1,7 @@
 import config
 import csv
 import ntplib
+import os
 import time
 import re
 import holiday
@@ -14,6 +15,12 @@ class Steal(Main):
         super().__init__()
         self.smbc_session = False
         self.limiter = True
+        # 稼働中同一プロセスチェック
+        if self.check_steal_file_exists: return
+        self.create_steal_file()
+
+    def __del__(self):
+        self.delete_steal_file()
 
     def main(self):
         '''メイン処理'''
@@ -381,6 +388,24 @@ class Steal(Main):
             except Exception as e:
                 self.log.error(f'NTPサーバーからの時刻取得処理に失敗しました サーバー: {server}\n{e}')
                 raise # TODO ここの対応どうするか考える 今は一旦エラーとして落とす
+
+    def create_steal_file(self):
+        '''プロセス使用中のファイルを作成する'''
+        file_path = "/tmp/steal"
+        with open(file_path, "w"):
+            pass
+        return True
+
+    def check_steal_file_exists(self):
+        '''他に起動しているプロセスがあるかチェックする'''
+        file_path = "/tmp/steal"
+        return os.path.exists(file_path)
+
+    def delete_steal_file(self):
+        '''プロセス使用中のファイルを削除する'''
+        file_path = "/tmp/steal"
+        if os.path.exists(file_path):
+            os.remove(file_path)
 
 if __name__ == '__main__':
     s = Steal()
