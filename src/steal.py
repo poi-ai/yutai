@@ -159,7 +159,7 @@ class Steal(Main):
                                 break
 
                 if self.limiter:
-                    time.sleep(10)
+                    time.sleep(2)
 
                 # 2周以上した場合はリミッターをかける
                 elif counter >= 2:
