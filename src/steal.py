@@ -161,8 +161,8 @@ class Steal(Main):
                 if self.limiter:
                     time.sleep(2)
 
-                # 2周以上した場合はリミッターをかける
-                elif counter >= 2:
+                # 20周以上した場合はリミッターをかける
+                elif counter >= 20:
                     self.limiter = True
 
             # 除外した銘柄情報をメインリストに反映
