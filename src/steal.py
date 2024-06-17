@@ -55,6 +55,8 @@ class Steal(Main):
             if self.smbc_session == False:
                 return False
 
+        # リミッター制御用カウンター
+        counter = 0
 
         # 在庫チェック/注文処理
         while True:
@@ -68,9 +70,6 @@ class Steal(Main):
             result = self.time_manage()
             if result == False:
                 return False
-
-            # リミッター制御用カウンター
-            counter = 0
 
             for target in steal_list:
                 counter += 1
@@ -154,13 +153,21 @@ class Steal(Main):
                                 self.log.info('SMBC日興証券再ログイン終了')
                                 login_flag = True
 
+                            # 過剰アクセスエラーの場合は0.5秒待機
+                            elif result == 6:
+                                time.sleep(0.5)
+
                             # 他,続行不可能エラー(-1)の場合などは一旦ループを抜けてループ外で処理させる
                             else:
                                 break
 
+                # 過剰アクセスエラーの場合は0.5秒待機
+                elif result == 6:
+                    time.sleep(0.5)
+
+                # リミッターチェック
                 if self.limiter:
                     time.sleep(2)
-
                 # 20周以上した場合はリミッターをかける
                 elif counter >= 20:
                     self.limiter = True
