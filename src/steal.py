@@ -153,7 +153,7 @@ class Steal(Main):
                                 self.log.info('SMBC日興証券再ログイン終了')
                                 login_flag = True
 
-                            # 過剰アクセスエラーの場合は0.5秒待機
+                            # 過剰アクセスエラーの場合は0.2秒待機(=リミッター分と合わせて最小でも0.7秒の間隔)
                             elif result == 6:
                                 time.sleep(0.5)
 
@@ -161,16 +161,20 @@ class Steal(Main):
                             else:
                                 break
 
-                # 過剰アクセスエラーの場合は0.5秒待機
+                # 過剰アクセスエラーの場合は0.2秒待機(=リミッター分と合わせて最小でも0.7秒の間隔)
                 elif result == 6:
-                    time.sleep(0.5)
+                    time.sleep(0.2)
 
                 # リミッターチェック
                 if self.limiter:
-                    time.sleep(2)
-                # 20周以上した場合はリミッターをかける
-                elif counter >= 20:
-                    self.limiter = True
+                    time.sleep(3)
+                # リミットがかかっていない場合
+                else:
+                    # それでも0.5秒のマージンを取っておかないと過剰エラーになるので待つ
+                    time.sleep(0.5)
+                    # 20周したらリミッターをかける
+                    if counter >= 20:
+                        self.limiter = True
 
             # 除外した銘柄情報をメインリストに反映
             steal_list = tmp_list
@@ -236,7 +240,7 @@ class Steal(Main):
             self.log.warning('過剰アクセスのため注文できません')
             return 6
 
-        # 注文用のトークンID/URLIDの取得
+        # 注文用のトークンID/URL IDの取得
         try:
             token_id = soup.find('input', {'name': 'tokenId'}).get('value')
             url_match = re.search(r'OdrMng/(.+)/sinyo/tku_odr/exec', str(soup))
@@ -281,6 +285,12 @@ class Steal(Main):
         # 注文完了チェック
         if not '売り注文を受付ました' in soup_text:
             self.log.error('不明なエラーです')
+            ### デバッグ用
+            current_time = datetime.now().strftime("%Y%m%d%H%M%S%f")
+            file_name = f"{current_time}.text"
+            with open(file_name, "w", encoding='utf-8') as file:
+                file.write(str(soup))
+            ### デバッグ用ここまで
             return 2
 
         self.log.info(f'注文が完了しました 証券コード: {stock_code} 株数: {num}')
