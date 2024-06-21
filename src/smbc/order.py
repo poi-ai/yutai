@@ -1,4 +1,5 @@
 import config
+import requests
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 
@@ -56,9 +57,14 @@ class Order():
         }
 
         try:
-            r = session.post('https://trade.smbcnikko.co.jp/OdrMng/000000000000/sinyo/tku_odr/siji', data = post_info)
-        except:
-            self.log.error('接続に失敗')
+            r = session.post(url = 'https://trade.smbcnikko.co.jp/OdrMng/000000000000/sinyo/tku_odr/siji',
+                             data = post_info,
+                             timeout = (1, 2)) # 接続タイムアウト1秒、HTML読み込みタイムアウトは2秒
+        except requests.exceptions.ConnectTimeout as e:
+            self.log.error(f'タイムアウトエラー\n{e}')
+            return False, None
+        except Exception as e:
+            self.log.error(f'接続に失敗\n{e}')
             return False, None
 
         if r.status_code != 200:
