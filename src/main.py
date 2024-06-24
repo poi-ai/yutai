@@ -344,7 +344,7 @@ class Main():
             if result == False:
                 return False
             self.log.info(f'{page}ページ目CSV出力終了')
-            time.sleep(2)
+            time.sleep(3)
 
         self.log.info('SMBC日興証券一般在庫取得／出力終了')
 

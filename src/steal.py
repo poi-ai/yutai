@@ -138,9 +138,9 @@ class Steal(Main):
                                 self.smbc_session = self.smbc.login.login()
                                 self.log.info('SMBC日興証券再ログイン終了')
 
-                            # メンテ中なら0.5秒待機
+                            # メンテ中なら1秒待機
                             elif result == 3:
-                                time.sleep(0.5)
+                                time.sleep(1)
 
                             # 在庫不足なら正常に接続はできているのでループから抜ける
                             elif result == 4:
@@ -153,7 +153,7 @@ class Steal(Main):
                                 self.log.info('SMBC日興証券再ログイン終了')
                                 login_flag = True
 
-                            # 過剰アクセスエラーの場合は0.2秒待機(=リミッター分と合わせて最小でも0.7秒の間隔)
+                            # 過剰アクセスエラーの場合は0.2秒待機(=リミッターなしでも最小0.7秒の間隔)
                             elif result == 6:
                                 time.sleep(0.5)
 
@@ -161,7 +161,7 @@ class Steal(Main):
                             else:
                                 break
 
-                # 過剰アクセスエラーの場合は0.2秒待機(=リミッター分と合わせて最小でも0.7秒の間隔)
+                # 過剰アクセスエラーの場合は0.2秒待機(=リミッターなしでも最小でも0.7秒の間隔)
                 elif result == 6:
                     time.sleep(0.2)
 
@@ -315,18 +315,24 @@ class Steal(Main):
         if 2 <= now.hour <= 3:
             self.log.info('メンテナンス時間中なので処理を終了します\n')
             return False
+        # 22~24時はほぼ補充されないので監視対象から外す
+        elif 22 <= now.hour <= 24:
+            self.log.info('在庫のほぼ出ない時間帯(22~24時)なので処理を終了します')
+            return False
+        # 朝もまあまずでないので6時になったら監視対象から外す
+        elif 6 <= now.hour <= 8:
+            self.log.info('在庫のほぼ出ない時間帯(6~8時)なので処理を終了します')
+            return False
 
         # メンテナンス時間(4:00~4:59)なら5:00まで待つ
         if now.hour == 4:
             target_time = datetime(now.year, now.month, now.day, 5, 0)
-            # 5;00の場合は5:00:45くらいまでメンテが明けないので30秒まで待機
-            add_time = 30
             # 争奪戦用にリミッター解除
             self.limiter = False
 
-        ## 非営業日ならこれ以上チェックはしない
+        ## 非営業日は恐らく在庫補充されなさそうなので、監視をやめる
         if not holiday.is_exchange_workday(now):
-            return True
+            return False
 
         # 大引け後注文中断時間(15:00~16:58)なら16:59まで待つ
         if now.hour == 15 or (now.hour == 16 and now.minute < 59):
@@ -345,8 +351,6 @@ class Steal(Main):
         # 20:19なら20:20まで待つ
         elif now.hour == 20 and now.minute == 19:
             target_time = datetime(now.year, now.month, now.day, 20, 20)
-            # 争奪戦用にリミッター解除
-            self.limiter = False
 
         # ザラ場直前・場中・昼休みは処理を行わない TODO いずれ場中でも注文できるように修正する
         elif (now.hour == 8 and now.minute > 50) or 9 <= now.hour <= 15:
