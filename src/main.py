@@ -145,6 +145,9 @@ class Main():
             return False
         self.log.info('auカブコム証券ログイン終了')
 
+        if config.SLOW_PROCESS:
+            time.sleep(10)
+
         self.log.info('auカブコム証券一般在庫取得開始')
 
         # 優待あり銘柄の在庫情報(+注文情報)をCSVのバイナリで取得する
@@ -344,7 +347,11 @@ class Main():
             if result == False:
                 return False
             self.log.info(f'{page}ページ目CSV出力終了')
-            time.sleep(3)
+
+            if config.SLOW_PROCESS:
+                time.sleep(15)
+            else:
+                time.sleep(3)
 
         self.log.info('SMBC日興証券一般在庫取得／出力終了')
 
@@ -366,7 +373,10 @@ class Main():
             return False
         self.log.info('SMBC日興証券ログイン終了')
 
-        time.sleep(2)
+        if config.SLOW_PROCESS:
+            time.sleep(10)
+        else:
+            time.sleep(2)
 
         self.log.info('SMBC日興証券一般在庫取得開始')
 
@@ -389,7 +399,10 @@ class Main():
                 return False
             self.log.info(f'ページ数取得終了 証券コードの上1桁: {top_num} 、全{pages}ページ')
 
-            time.sleep(2)
+            if config.SLOW_PROCESS:
+                time.sleep(10)
+            else:
+                time.sleep(2)
 
             # ページことに処理
             for page in range(1, pages + 1):
@@ -414,7 +427,10 @@ class Main():
                     if len(result) != 0:
                         mix_code_list[code] = result[0]
 
-                time.sleep(2)
+                if config.SLOW_PROCESS:
+                    time.sleep(10)
+                else:
+                    time.sleep(2)
 
                 # ページの最後の銘柄が対象銘柄の値よりも大きいか(=これ以降のページに取得対象は存在しないか)
                 if stock_list[-1]['stock_code'] >= max_code:

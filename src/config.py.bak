@@ -38,3 +38,6 @@ THIRD_TARGET_STOCK_CODE_LIST = []
 
 # LINE NotifyのAPIキー
 LINE_NOTIFY_API_KEY = ''
+
+# スローで処理するか(権利確定日までまだ期間があるなどの場合にアクセス頻度を抑えるか、bool)
+SLOW_PROCESS = True
