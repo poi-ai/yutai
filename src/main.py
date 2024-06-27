@@ -82,6 +82,17 @@ class Main():
                 # 一般在庫データの成型
                 mold_data, data_type = self.kabucom_mold_csv(csv_data)
 
+                # CSVファイルに出力
+                for stock in mold_data:
+                    # 抽選受付中(19:30~20:30)の場合
+                    if data_type == 'lottery':
+                        result, error_message = self.output.zaiko_csv('kabucom', stock['stock_code'], f"{stock['order_num']}/{stock['stock_num']}")
+                    else:
+                        result, error_message = self.output.zaiko_csv('kabucom', stock['stock_code'], stock['stock_num'])
+
+                    if result == False:
+                        self.log.error(error_message)
+
                 # LINEでデータ送信
                 # 1群目
                 self.kabucom_line_send(mold_data, data_type, self.first_stock_list)
@@ -271,10 +282,10 @@ class Main():
                 if stock['stock_code'] == str(code):
                     # 注文受付中の場合
                     if data_type == 'order':
-                        notice_message += f'\n【({stock["stock_code"]}){stock["stock_name"][:10]}】\n在庫: {stock["stock_num"]}株 プレ料: {stock["premium"]}円\n'
+                        notice_message += f'【({stock["stock_code"]}){stock["stock_name"][:10]}】\n在庫: {stock["stock_num"]}株 プレ料: {stock["premium"]}円\n'
                     # 抽選受付中の場合
                     else:
-                        notice_message += f'\n【({stock["stock_code"]}){stock["stock_name"][:10]}】\n在庫: {stock["order_num"]}/{stock["stock_num"]}株 プレ料: {stock["premium_lower"]}~{stock["premium_upper"]}円\n'
+                        notice_message += f'【({stock["stock_code"]}){stock["stock_name"][:10]}】\n在庫: {stock["order_num"]}/{stock["stock_num"]}株 プレ料: {stock["premium_lower"]}~{stock["premium_upper"]}円\n'
 
                     # 補完情報がある場合追加挿入する
                     if not df is False:
@@ -444,9 +455,16 @@ class Main():
         for code in mix_code_list.keys():
             if mix_code_list[code] == None:
                 message += f'証券コード: {(code)} の在庫データがありません\n'
+                stock_num = -1
             else:
                 stock = mix_code_list[code]
-                message += f"({stock['stock_code']}){stock['stock_name']} 在庫数:{stock['stock_num']}株\n"
+                message += f"({stock['stock_code']}){stock['stock_name']} 在庫数: {stock['stock_num']}株\n"
+                stock_num = stock['stock_num']
+
+            # CSV出力
+            result, error_message = self.output.zaiko_csv('smbc', str(code), stock_num)
+            if result == False:
+                self.log.error(error_message)
 
         # 1000文字を超える場合は分割(念のため990文字ごとに)
         notice_message_list = [message[i:i + 990] for i in range(0, len(message), 990)]

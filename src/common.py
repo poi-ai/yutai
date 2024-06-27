@@ -2,7 +2,9 @@ import csv
 import logging
 import inspect
 import json
+import numpy as np
 import os
+import pandas as pd
 import sys
 import re
 import requests
@@ -101,6 +103,64 @@ class Output():
 
         return True, ''
 
+    def zaiko_csv(self, compony, stock_code, stock_num):
+        '''
+        在庫情報をCSVで出力する
+
+        Args:
+            company(str): 証券会社名
+            stock_code(str): 証券コード
+            stock_num(int): 在庫数
+
+        Returns:
+            result(bool): 実行結果
+            error_message(str): エラーメッセージ
+
+        '''
+        today = datetime.today()
+        today_date = today.strftime('%Y%m%d')
+        year_month = today.strftime('%Y%m')
+        next_month = (today.replace(day = 28) + pd.DateOffset(days = 4)).strftime('%Y%m')
+        data_folder = '../data'
+
+        # 受け渡しの2営業日分のズレを鑑みて2か月分のファイルに出力する
+        file_names = [f'{data_folder}/{compony}_zaiko_{year_month}.csv', f'{data_folder}/{compony}_zaiko_{next_month}.csv']
+
+        try:
+            for file_name in file_names:
+                # ファイル存在チェック
+                if os.path.exists(file_name):
+                    df = pd.read_csv(file_name)
+                else:
+                    df = pd.DataFrame(columns=['stock_code', today_date])
+
+                # 今日の日付のカラムがなかったらデフォルト値を9として追加
+                if today_date not in df.columns:
+                    df[today_date] = -9
+
+                # stock_codeカラムがintとして読み込まれてしまってる可能性があるのでstr型と明示する
+                df['stock_code'] = df['stock_code'].astype(str)
+
+                # 指定した証券コードの行がない場合はデフォルト値は9として挿入する
+                add_flag = False
+                if not np.any(df['stock_code'] == stock_code):
+                    new_row = pd.DataFrame([[stock_code] + [-9] * (len(df.columns) - 1)], columns = df.columns)
+                    df = pd.concat([df, new_row], ignore_index = True)
+                    add_flag = True
+
+                # 在庫数の挿入
+                df.loc[df['stock_code'] == stock_code, today_date] = stock_num
+
+                # 行が追加されていたらstock_codeカラムを昇順で並べ直す
+                if add_flag:
+                    df = df.sort_values(by = 'stock_code').reset_index(drop = True)
+
+                # CSV出力
+                df.to_csv(file_name, index = False)
+        except Exception as e:
+                return False, f'在庫情報のCSV出力に失敗しました\n{e}'
+
+        return True, None
 
 class Log():
     '''
