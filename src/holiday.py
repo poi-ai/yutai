@@ -268,6 +268,3 @@ def is_exchange_holiday(date):
         return True
 
     return False
-
-now = datetime.now()
-print(next_exchange_workday(now))

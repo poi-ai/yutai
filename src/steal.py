@@ -324,9 +324,10 @@ class Steal(Main):
             self.log.info('在庫のほぼ出ない時間帯(6~8時)なので処理を終了します')
             return False
 
-        # メンテナンス時間(4:00~4:59)なら5:00まで待つ
+        # メンテナンス時間(4:00~4:59)なら5:00:05まで待つ
         if now.hour == 4:
             target_time = datetime(now.year, now.month, now.day, 5, 0)
+            add_time += 5
             # 争奪戦用にリミッター解除
             self.limiter = False
 
@@ -338,9 +339,10 @@ class Steal(Main):
         if now.hour == 15 or (now.hour == 16 and now.minute < 59):
             target_time = datetime(now.year, now.month, now.day, 16, 59)
 
-        # 16:59なら17:00まで待つ
+        # 16:59なら17:00:05まで待つ
         elif now.hour == 16 and now.minute == 59:
             target_time = datetime(now.year, now.month, now.day, 17, 00)
+            add_time += 5
             # 争奪戦用にリミッター解除
             self.limiter = False
 
