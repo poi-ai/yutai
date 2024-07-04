@@ -157,7 +157,7 @@ class Main():
         self.log.info('auカブコム証券ログイン終了')
 
         if config.SLOW_PROCESS:
-            time.sleep(10)
+            time.sleep(5)
 
         self.log.info('auカブコム証券一般在庫取得開始')
 
@@ -360,7 +360,7 @@ class Main():
             self.log.info(f'{page}ページ目CSV出力終了')
 
             if config.SLOW_PROCESS:
-                time.sleep(15)
+                time.sleep(5)
             else:
                 time.sleep(3)
 
@@ -385,7 +385,7 @@ class Main():
         self.log.info('SMBC日興証券ログイン終了')
 
         if config.SLOW_PROCESS:
-            time.sleep(10)
+            time.sleep(5)
         else:
             time.sleep(2)
 
@@ -411,7 +411,7 @@ class Main():
             self.log.info(f'ページ数取得終了 証券コードの上1桁: {top_num} 、全{pages}ページ')
 
             if config.SLOW_PROCESS:
-                time.sleep(10)
+                time.sleep(5)
             else:
                 time.sleep(2)
 
@@ -439,7 +439,7 @@ class Main():
                         mix_code_list[code] = result[0]
 
                 if config.SLOW_PROCESS:
-                    time.sleep(10)
+                    time.sleep(5)
                 else:
                     time.sleep(2)
 
