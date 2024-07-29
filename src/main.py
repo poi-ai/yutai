@@ -86,9 +86,15 @@ class Main():
                 for stock in mold_data:
                     # 抽選受付中(19:30~20:30)の場合
                     if data_type == 'lottery':
-                        result, error_message = self.output.zaiko_csv('kabucom', stock['stock_code'], f"{stock['order_num']}/{stock['stock_num']}")
+                        result, error_message = self.output.zaiko_csv(company = 'kabucom',
+                                                                      stock_code = stock['stock_code'],
+                                                                      stock_num = f"{stock['order_num']}/{stock['stock_num']}",
+                                                                      csv_name = config.CSV_NAME)
                     else:
-                        result, error_message = self.output.zaiko_csv('kabucom', stock['stock_code'], stock['stock_num'])
+                        result, error_message = self.output.zaiko_csv(company = 'kabucom',
+                                                                      stock_code = stock['stock_code'],
+                                                                      stock_num = stock['stock_num'],
+                                                                      csv_name = config.CSV_NAME)
 
                     if result == False:
                         self.log.error(error_message)
@@ -462,7 +468,10 @@ class Main():
                 stock_num = stock['stock_num']
 
             # CSV出力
-            result, error_message = self.output.zaiko_csv('smbc', str(code), stock_num)
+            result, error_message = self.output.zaiko_csv(compony = 'smbc',
+                                                          stock_code = str(code),
+                                                          stock_num = stock_num,
+                                                          csv_name = config.CSV_NAME)
             if result == False:
                 self.log.error(error_message)
 

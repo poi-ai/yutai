@@ -103,7 +103,7 @@ class Output():
 
         return True, ''
 
-    def zaiko_csv(self, compony, stock_code, stock_num):
+    def zaiko_csv(self, compony, stock_code, stock_num, csv_name = None):
         '''
         在庫情報をCSVで出力する
 
@@ -111,6 +111,8 @@ class Output():
             company(str): 証券会社名
             stock_code(str): 証券コード
             stock_num(int): 在庫数
+            csv_name(str): CSVファイル名 ※省略可
+                省略時は、{証券会社名}_zaiko_{年月}.csv
 
         Returns:
             result(bool): 実行結果
@@ -123,8 +125,16 @@ class Output():
         next_month = (today.replace(day = 28) + pd.DateOffset(days = 4)).strftime('%Y%m')
         data_folder = '../data'
 
-        # 受け渡しの2営業日分のズレを鑑みて2か月分のファイルに出力する
-        file_names = [f'{data_folder}/{compony}_zaiko_{year_month}.csv', f'{data_folder}/{compony}_zaiko_{next_month}.csv']
+        if csv_name == None:
+            # ファイル名の指定がない場合
+            # 受け渡しの2営業日分のズレを鑑みて2か月分のファイルに出力する
+            file_names = [f'{data_folder}/{compony}_zaiko_{year_month}.csv', f'{data_folder}/{compony}_zaiko_{next_month}.csv']
+        else:
+            # ファイル名の指定がある場合
+            if '.csv' in csv_name:
+                file_names = [f'{data_folder}/{compony}_{csv_name}']
+            else:
+                file_names = [f'{data_folder}/{compony}_{csv_name}.csv']
 
         try:
             for file_name in file_names:
