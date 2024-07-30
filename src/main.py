@@ -468,7 +468,7 @@ class Main():
                 stock_num = stock['stock_num']
 
             # CSV出力
-            result, error_message = self.output.zaiko_csv(compony = 'smbc',
+            result, error_message = self.output.zaiko_csv(company = 'smbc',
                                                           stock_code = str(code),
                                                           stock_num = stock_num,
                                                           csv_name = config.CSV_NAME)
