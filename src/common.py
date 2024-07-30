@@ -103,7 +103,7 @@ class Output():
 
         return True, ''
 
-    def zaiko_csv(self, compony, stock_code, stock_num, csv_name = None):
+    def zaiko_csv(self, company, stock_code, stock_num, csv_name = None):
         '''
         在庫情報をCSVで出力する
 
@@ -128,13 +128,13 @@ class Output():
         if csv_name == None:
             # ファイル名の指定がない場合
             # 受け渡しの2営業日分のズレを鑑みて2か月分のファイルに出力する
-            file_names = [f'{data_folder}/{compony}_zaiko_{year_month}.csv', f'{data_folder}/{compony}_zaiko_{next_month}.csv']
+            file_names = [f'{data_folder}/{company}_zaiko_{year_month}.csv', f'{data_folder}/{company}_zaiko_{next_month}.csv']
         else:
             # ファイル名の指定がある場合
             if '.csv' in csv_name:
-                file_names = [f'{data_folder}/{compony}_{csv_name}']
+                file_names = [f'{data_folder}/{company}_{csv_name}']
             else:
-                file_names = [f'{data_folder}/{compony}_{csv_name}.csv']
+                file_names = [f'{data_folder}/{company}_{csv_name}.csv']
 
         try:
             for file_name in file_names:
