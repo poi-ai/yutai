@@ -120,6 +120,7 @@ class Steal(Main):
                     now = datetime.now()
                     # ただしメンテナンスが明けているはずの時間の場合は再チェックする
                     if (now.hour in [5, 17] and now.minute <= 1) or (now.hour == 20 and 20 <= now.minute <= 21):
+                        time.sleep(0.5)
                         login_flag = False
                         now = datetime.now()
                         # メンテ時間エラーか取引時間外エラーの表示が出るまでループチェック
@@ -138,9 +139,9 @@ class Steal(Main):
                                 self.smbc_session = self.smbc.login.login()
                                 self.log.info('SMBC日興証券再ログイン終了')
 
-                            # メンテ中なら1秒待機
+                            # メンテ中なら0.5秒待機
                             elif result == 3:
-                                time.sleep(1)
+                                continue
 
                             # 在庫不足なら正常に接続はできているのでループから抜ける
                             elif result == 4:
@@ -153,27 +154,28 @@ class Steal(Main):
                                 self.log.info('SMBC日興証券再ログイン終了')
                                 login_flag = True
 
-                            # 過剰アクセスエラーの場合は0.2秒待機(=リミッターなしでも最小0.7秒の間隔)
+                            # 過剰アクセスエラーの場合は0.5秒待機
                             elif result == 6:
-                                time.sleep(0.5)
+                                continue
 
                             # 他,続行不可能エラー(-1)の場合などは一旦ループを抜けてループ外で処理させる
                             else:
                                 break
 
-                # 過剰アクセスエラーの場合は0.2秒待機(=リミッターなしでも最小でも0.7秒の間隔)
+                # 過剰アクセスエラーの場合は0.2秒待機(=リミッターなしでも+0.5秒で最小でも0.7秒の間隔)
                 elif result == 6:
                     time.sleep(0.2)
 
                 # リミッターチェック
                 if self.limiter:
-                    time.sleep(3)
+                    self.log.info('メンテ明けタイミング調査終了')
+                    #time.sleep(3)
                 # リミットがかかっていない場合
                 else:
                     # それでも0.5秒のマージンを取っておかないと過剰エラーになるので待つ
                     time.sleep(0.5)
-                    # 20周したらリミッターをかける
-                    if counter >= 20:
+                    # 100周したらリミッターをかける
+                    if counter >= 100:
                         self.limiter = True
 
             # 除外した銘柄情報をメインリストに反映
@@ -327,7 +329,7 @@ class Steal(Main):
         # メンテナンス時間(4:00~4:59)なら5:00:05まで待つ
         if now.hour == 4:
             target_time = datetime(now.year, now.month, now.day, 5, 0)
-            add_time += 5
+            #add_time += 5  TODO メンテ明け時間調査のため一旦5:00からスタートにする
             # 争奪戦用にリミッター解除
             self.limiter = False
 
@@ -342,7 +344,7 @@ class Steal(Main):
         # 16:59なら17:00:05まで待つ
         elif now.hour == 16 and now.minute == 59:
             target_time = datetime(now.year, now.month, now.day, 17, 00)
-            add_time += 5
+            #add_time += 5 TODO メンテ明け時間調査のため一旦17:00からスタートにする
             # 争奪戦用にリミッター解除
             self.limiter = False
 
