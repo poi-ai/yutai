@@ -30,6 +30,10 @@ class Steal(Main):
             self.log.error(f'監視/自動注文対象銘柄CSVの取得に失敗\n{steal_list}')
             return False
 
+        # TODO NTPと組み込み関数(datetimeの時間のズレを確認しておく)
+        self.log.info(f'NTP: {self.ntp()}')
+        self.log.info(f'datetime: {datetime.now()}')
+
         # 時間チェック
         result = self.time_manage()
         if result == False:
@@ -344,7 +348,8 @@ class Steal(Main):
         # 16:59なら17:00:05まで待つ
         elif now.hour == 16 and now.minute == 59:
             target_time = datetime(now.year, now.month, now.day, 17, 00)
-            #add_time += 5 TODO メンテ明け時間調査のため一旦17:00からスタートにする
+            #add_time += 5
+            add_time += 3  # TODO メンテ明け時間調査のため一旦17:00:03からスタートにする
             # 争奪戦用にリミッター解除
             self.limiter = False
 
