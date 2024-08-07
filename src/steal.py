@@ -330,10 +330,16 @@ class Steal(Main):
             self.log.info('在庫のほぼ出ない時間帯(6~8時)なので処理を終了します')
             return False
 
-        # メンテナンス時間(4:00~4:59)なら5:00:05まで待つ
+        # メンテナンス時間(4:00~4:59)なら5:00:00まで待つ
         if now.hour == 4:
             target_time = datetime(now.year, now.month, now.day, 5, 0)
             #add_time += 5  TODO メンテ明け時間調査のため一旦5:00からスタートにする
+            # 争奪戦用にリミッター解除
+            self.limiter = False
+
+        # メンテナンス明けだがサーバー的にはメンテナンス時間(5:00)なら5:00:45まで待つ
+        if now.hour == 4:
+            target_time = datetime(now.year, now.month, now.day, 5, 0, 45)
             # 争奪戦用にリミッター解除
             self.limiter = False
 
