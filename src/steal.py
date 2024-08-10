@@ -173,11 +173,12 @@ class Steal(Main):
                 # リミッターチェック
                 if self.limiter:
                     self.log.info('メンテ明けタイミング調査終了')
+                    exit()
                     #time.sleep(3)
                 # リミットがかかっていない場合
                 else:
                     # それでも0.5秒のマージンを取っておかないと過剰エラーになるので待つ
-                    time.sleep(0.5)
+                    time.sleep(0.4)
                     # 100周したらリミッターをかける
                     if counter >= 100:
                         self.limiter = True
@@ -337,9 +338,9 @@ class Steal(Main):
             # 争奪戦用にリミッター解除
             self.limiter = False
 
-        # メンテナンス明けだがサーバー的にはメンテナンス時間(5:00)なら5:00:45まで待つ
-        if now.hour == 4:
-            target_time = datetime(now.year, now.month, now.day, 5, 0, 45)
+        # メンテナンス明けだがサーバー的にはメンテナンス時間(5:00)なら5:00:40まで待つ
+        if now.hour == 5 and now.minute == 0:
+            target_time = datetime(now.year, now.month, now.day, 5, 0, 40)
             # 争奪戦用にリミッター解除
             self.limiter = False
 
