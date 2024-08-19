@@ -311,8 +311,6 @@ class Steal(Main):
         # 時間取得
         now = datetime.now()
         target_time = False
-        # 調整用秒数(SMBCは0秒ぴったりで動かないことが多い)
-        add_time = 0
 
         ## 全日共通時間判定
 
@@ -334,13 +332,12 @@ class Steal(Main):
         # メンテナンス時間(4:00~4:59)なら5:00:00まで待つ
         if now.hour == 4:
             target_time = datetime(now.year, now.month, now.day, 5, 0)
-            #add_time += 5  TODO メンテ明け時間調査のため一旦5:00からスタートにする
             # 争奪戦用にリミッター解除
             self.limiter = False
 
-        # メンテナンス明けだがサーバー的にはメンテナンス時間(5:00)なら5:00:40まで待つ
+        # メンテナンス明けだがサーバー的にはメンテナンス時間(5:00)なら5:00:42まで待つ
         if now.hour == 5 and now.minute == 0:
-            target_time = datetime(now.year, now.month, now.day, 5, 0, 40)
+            target_time = datetime(now.year, now.month, now.day, 5, 0, 42)
             # 争奪戦用にリミッター解除
             self.limiter = False
 
@@ -352,11 +349,9 @@ class Steal(Main):
         if now.hour == 15 or (now.hour == 16 and now.minute < 59):
             target_time = datetime(now.year, now.month, now.day, 16, 59)
 
-        # 16:59なら17:00:05まで待つ
+        # 16:59なら17:00:03まで待つ
         elif now.hour == 16 and now.minute == 59:
-            target_time = datetime(now.year, now.month, now.day, 17, 00)
-            #add_time += 5
-            add_time += 3  # TODO メンテ明け時間調査のため一旦17:00:03からスタートにする
+            target_time = datetime(now.year, now.month, now.day, 17, 0, 3)
             # 争奪戦用にリミッター解除
             self.limiter = False
 
@@ -376,7 +371,7 @@ class Steal(Main):
         elif target_time == False:
             return True
 
-        wait_time = (target_time - self.ntp()).total_seconds() + add_time
+        wait_time = (target_time - self.ntp()).total_seconds()
 
         self.log.info(f'wait {wait_time}s...')
         time.sleep(wait_time)

@@ -60,7 +60,7 @@ class Order():
         # 5時のメンテ明けの場合はセッションが切れるため、早めに接続アウトとする
         now = datetime.now()
         if now.hour == 5 and now.minute < 2:
-            connect_timeout, read_time_out = 0.5, 0.5 # 接続タイムアウト0.5秒、HTML読み込みタイムアウトは0.5秒
+            connect_timeout, read_time_out = 0.5, 1 # 接続タイムアウト0.5秒、HTML読み込みタイムアウトは1秒 TODO ここシビア。readは緩和するかも
         else:
             connect_timeout, read_time_out = 1, 2 # 接続タイムアウト1秒、HTML読み込みタイムアウトは2秒
 
