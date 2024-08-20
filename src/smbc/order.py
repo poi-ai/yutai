@@ -56,10 +56,18 @@ class Order():
             'execUrl.y': '18'              # 押下したボタンのy軸
         }
 
+        # タイムアウト時間を設定
+        # 5時のメンテ明けの場合はセッションが切れるため、早めに接続アウトとする
+        now = datetime.now()
+        if now.hour == 5 and now.minute < 2:
+            connect_timeout, read_time_out = 0.5, 1 # 接続タイムアウト0.5秒、HTML読み込みタイムアウトは1秒 TODO ここシビア。readは緩和するかも
+        else:
+            connect_timeout, read_time_out = 1, 2 # 接続タイムアウト1秒、HTML読み込みタイムアウトは2秒
+
         try:
             r = session.post(url = 'https://trade.smbcnikko.co.jp/OdrMng/000000000000/sinyo/tku_odr/siji',
                              data = post_info,
-                             timeout = (1, 2)) # 接続タイムアウト1秒、HTML読み込みタイムアウトは2秒
+                             timeout = (connect_timeout, read_time_out))
         except requests.exceptions.ConnectTimeout as e:
             self.log.error(f'タイムアウトエラー\n{e}')
             return False, None
