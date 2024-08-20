@@ -21,6 +21,7 @@ class Steal(Main):
 
     def __del__(self):
         self.delete_steal_file()
+        self.delete_csv('./priority_steal_list.csv')
 
     def main(self):
         '''メイン処理'''
@@ -29,6 +30,9 @@ class Steal(Main):
         if result == False:
             self.log.error(f'監視/自動注文対象銘柄CSVの取得に失敗\n{steal_list}')
             return False
+            
+        # TODO 今は在庫が補充された銘柄のみpriority_steal_listにあるが、
+        # いずれは在庫ないのも入れて、リミッター解除後にはそっちも処理するようにしたい
 
         # TODO NTPと組み込み関数(datetimeの時間のズレを確認しておく)
         self.log.info(f'NTP: {self.ntp()}')
@@ -380,7 +384,7 @@ class Steal(Main):
 
     def get_steal_list(self):
         '''
-        一般売対象銘柄のリストをCSVから取得する]
+        一般売対象銘柄のリストをCSVから取得する
 
         Returns:
             result(bool): 実行結果
@@ -389,13 +393,26 @@ class Steal(Main):
         '''
         steal_list = []
 
+        # 在庫状態に応じた優先度順に並び変えたCSVがあればそこから取得
+        try:
+            with open('priority_steal_list.csv', 'r', newline = '', encoding = 'UTF-8') as csvfile:
+                reader = csv.reader(csvfile)
+                for row in reader:
+                    steal_list.append(row)
+        except Exception as e:
+            self.log.error(f'監視/自動注文対象銘柄CSVの取得に失敗(優先度ソート)\n{e}')
+            steal_list = []
+
+        # 取得できた場合はこれを返す
+        if len(steal_list) != 0:
+            return True, steal_list
+
+        # 優先度順のCSVが取れなかった場合は、在庫状態関係なく列挙したlistについて取得する
         try:
             with open('steal_list.csv', 'r', newline = '', encoding = 'UTF-8') as csvfile:
                 reader = csv.reader(csvfile)
                 for row in reader:
                     steal_list.append(row)
-
-            self.steal_list = steal_list
         except Exception as e:
             return False, e
 

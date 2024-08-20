@@ -1,6 +1,6 @@
 import config, common
 import kabucom, matsui, rakuten, sbi, smbc
-import sys, time, pandas as pd, traceback
+import csv, sys, time, pandas as pd, traceback
 
 class Main():
     def __init__(self):
@@ -9,6 +9,7 @@ class Main():
         self.first_stock_list = []
         self.second_stock_list = []
         self.third_stock_list = []
+        self.steal_list = []
         try:
             self.output = common.Output(self.log)
             self.kabucom = kabucom.Kabucom(self.log,
@@ -67,7 +68,7 @@ class Main():
             # configファイルで設定した銘柄の一般在庫をLINEで通知
             elif exec_type == 'notice':
                 # 設定値チェック
-                self.notice_check()
+                self.notice_check(shoken = 1)
 
                 # auカブコム証券のWebサイトから一般在庫データの取得
                 csv_data = self.kabucom_get_csv()
@@ -378,10 +379,22 @@ class Main():
         '''SMBC日興証券の設定ファイルで指定した銘柄コードの一般在庫をLINEで通知する'''
 
         # 設定データのチェック
-        self.notice_check()
+        self.notice_check(shoken = 2)
 
-        # 対象銘柄の証券コードを一つのリストにまとめる
-        mix_code_list = {code: None for code in config.FIRST_TARGET_STOCK_CODE_LIST + config.SECOND_TARGET_STOCK_CODE_LIST + config.THIRD_TARGET_STOCK_CODE_LIST}
+        # steal_dataのリストから証券コードのみを取り出す
+        steal_list = [data[0] for data in self.steal_list]
+
+        # 証券コードの結合を行う
+        all_codes = config.FIRST_TARGET_STOCK_CODE_LIST +\
+                    config.SECOND_TARGET_STOCK_CODE_LIST +\
+                    config.THIRD_TARGET_STOCK_CODE_LIST +\
+                    steal_list
+
+        # 重複を削除
+        unique_codes = set(all_codes)
+
+        # 在庫数と合わせて保持できるように連想配列に書き換える
+        mix_code_list = {code: None for code in unique_codes}
 
         # ログイン
         self.log.info('SMBC日興証券ログイン開始')
@@ -467,7 +480,7 @@ class Main():
                 message += f"({stock['stock_code']}){stock['stock_name']} 在庫数: {stock['stock_num']}株\n"
                 stock_num = stock['stock_num']
 
-            # CSV出力
+            # 記録用CSV出力
             result, error_message = self.output.zaiko_csv(company = 'smbc',
                                                           stock_code = str(code),
                                                           stock_num = stock_num,
@@ -486,6 +499,17 @@ class Main():
                 self.log.error(error_message)
 
         self.log.info('SMBC日興証券一般在庫LINE通知処理終了')
+
+        # 在庫確保の優先順を決めてCSVに保存
+        self.log.info('SMBC日興証券の在庫順ソートCSV出力処理開始')
+
+        # 銘柄取得の優先順を決定するCSVを作成する
+        result = self.create_priority(mix_code_list)
+        if result == False:
+            self.log.info('SMBC日興証券の在庫順ソートCSV出力処理に失敗')
+            return False
+
+        self.log.info('SMBC日興証券の在庫順ソートCSV出力処理終了')
 
     def smbc_order(self, stock_code):
         '''SMBC日興証券で一般空売りの注文を行う'''
@@ -510,8 +534,19 @@ class Main():
             return False
         self.log.info('SMBC日興証券一般空売り注文終了')
 
-    def notice_check(self):
-        '''対象銘柄の在庫情報をLINE通知に送る処理についてデータのチェックを行う'''
+    def notice_check(self, shoken):
+        '''
+        対象銘柄の在庫情報をLINE通知に送る処理についてデータのチェックを行う
+
+        Args:
+            shoken(int): 証券会社
+                1: auカブコム、2: SMBC日興
+        '''
+
+        # config.pyかsteal_list.csvのどちらかに対象の銘柄の記載があるか
+        target_flag = False
+
+        # LINE Notifyのトークンを設定ファイルから呼び出しチェックする
         try:
             if config.LINE_NOTIFY_API_KEY == '':
                 self.log.warning('config.pyにLINE Notifyトークンの設定がされていません')
@@ -522,21 +557,36 @@ class Main():
             self.log.error('config.pyにLINE Notifyトークン用の変数(LINE_NOTIFY_API_KEY)が定義されていません')
             exit()
 
+        # 在庫数取得銘柄(=注文を行う銘柄ではない)を設定ファイルから取得する
         try:
             if len(config.FIRST_TARGET_STOCK_CODE_LIST) == 0\
                 and len(config.SECOND_TARGET_STOCK_CODE_LIST) == 0\
                 and len(config.THIRD_TARGET_STOCK_CODE_LIST) == 0:
                 self.log.warning('config.pyに通知対象銘柄の設定がされていません')
-                exit()
             else:
                 self.first_stock_list = config.FIRST_TARGET_STOCK_CODE_LIST
                 self.second_stock_list = config.SECOND_TARGET_STOCK_CODE_LIST
                 self.third_stock_list = config.THIRD_TARGET_STOCK_CODE_LIST
+                target_flag = True
         except AttributeError:
-            self.log.error('config.pyに通知対象銘柄用の変数(FIRST_TARGET_STOCK_CODE_LIST or SECOND_TARGET_STOCK_CODE_LIST)が定義されていません')
-            exit()
+            self.log.warning('config.pyに通知対象銘柄用の変数(FIRST_TARGET_STOCK_CODE_LIST or SECOND_TARGET_STOCK_CODE_LIST)が定義されていません')
 
-        return True
+        # 在庫があれば自動発注も行う銘柄についてsteal.pyから取得を行う(自動発注はSMBCのみ)
+        if shoken == 2:
+            result, steal_list = self.get_steal_list()
+            if result == False:
+                self.log.error('steal_list.csvの取得処理に失敗しました\n{e}')
+                self.steal_list = []
+            else:
+                # 銘柄コードのみ取得
+                self.steal_list = steal_list
+                target_flag = True
+
+        if target_flag:
+            return True
+
+        self.log.warning('取得対象の銘柄がないため処理を終了します')
+        exit()
 
     def get_stock_info_csv(self):
         '''
@@ -591,6 +641,72 @@ class Main():
             self.log.error(f'優待補完情報メッセージ作成処理でエラー 証券コード: {stock_code}\n{e}\n{traceback.format_exc()}')
 
         return yutai_message
+
+    def get_steal_list(self):
+        '''
+        一般売対象銘柄のリストをCSVから取得する
+
+        Returns:
+            result(bool): 実行結果
+            steal_list(list) or error_message: 対象銘柄リスト or エラーメッセージ
+
+        '''
+        steal_list = []
+
+        try:
+            with open('steal_list.csv', 'r', newline = '', encoding = 'UTF-8') as csvfile:
+                reader = csv.reader(csvfile)
+                for row in reader:
+                    steal_list.append(row)
+        except Exception as e:
+            return False, e
+
+        return True, steal_list
+
+    def create_priority(self, zaiko_info):
+        '''
+        在庫状態から在庫の優先順を決定してCSVへ出力する
+
+        Args:
+            zaiko_info(dict{str: int,...}): 在庫情報
+                キー名: 証券コード、値: 在庫数
+
+        '''
+        # 発注対象リストの取得
+        steal_list = self.steal_list
+
+        # 発注対象が存在しない場合は処理なし
+        if len(steal_list) == 0:
+            return True
+
+        zaiko_exist_list = []
+        no_zaiko_list = []
+
+        # 在庫の有無で別のリストに追加 TODO いずれ優先フラグを立てる
+        for steal in steal_list:
+            zaiko = zaiko_info[steal[0]]
+            if zaiko != None:
+                if zaiko > 0:
+                    #steal[4] = 1
+                    zaiko_exist_list.append(steal)
+                else:
+                    #steal[4] = 0
+                    no_zaiko_list.append(steal)
+            else:
+                #steal[4] = 0
+                no_zaiko_list.append(steal)
+
+        # 在庫のある銘柄のみ出力対象とする
+        sort_zaiko_list = zaiko_exist_list
+        ### 在庫のある銘柄が先頭に来るように結合
+        ### sort_zaiko_list = zaiko_exist_list + no_zaiko_list
+
+        # CSVで出力を行い、実行結果を返り値として返す
+        return self.output.output_csv(data = sort_zaiko_list,
+                                      file_name = 'priority_steal_list.csv',
+                                      add_header = True,
+                                      add_time = False,
+                                      mode = 'w')
 
     def test(self):
         '''テスト用コード'''

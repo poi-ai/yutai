@@ -14,7 +14,7 @@ class Output():
     def __init__(self, log):
         self.log = log
 
-    def output_csv(self, data, file_name, add_header = True, add_time = True):
+    def output_csv(self, data, file_name, add_header = True, add_time = True, data_folder = True, mode = None):
         '''
         dict型のデータをCSVへ出力する
 
@@ -23,31 +23,71 @@ class Output():
             file_name(str): 出力するCSVのファイル名
             add_header(bool): ヘッダー行を追加するか、file_nameのCSVが既に存在する場合は無視される
             add_time(bool): 出力するCSVに時間情報を付けるか
+            data_folder(bool): dataフォルダに格納するか
+                Falseの場合はsrc直下
+            mode(str): 上書き/新規作成('w')か末尾追記('a')か
+
+        Returns:
+            result(bool): 実行結果
         '''
 
-        # 時間のカラムを追加する
-        if add_time:
-            data = self.add_time(data)
+        try:
+            # 時間のカラムを追加する
+            if add_time:
+                data = self.add_time(data)
 
+            # ファイル名の引数に.csvが書かれていなかった場合の救済
+            if not '.csv' in file_name:
+                file_name = f'{file_name}.csv'
+
+            # dataディレクトリに格納するためのパスを指定
+            if data_folder:
+                file_path = f'../data/{file_name}'
+            else:
+                file_path = f'./{file_name}'
+
+            if mode == None:
+                # 既に引数のファイルが存在する場合は追記、そうでない場合は上書き（新規作成）
+                mode = 'a' if os.path.exists(file_path) else 'w'
+
+            with open(file_path, mode, encoding = 'UTF-8', newline = '') as csvfile:
+                fieldnames = data[0].keys() if data else []
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+                if mode == 'w' and add_header:
+                    writer.writeheader()
+
+                for row in data:
+                    writer.writerow(row)
+        except Exception as e:
+            self.log.error('CSV出力に失敗しました\n{e}')
+            return False
+
+        return True
+
+    def delete_csv(self, file_path):
+        '''
+        指定したCSVファイルを削除する
+
+        Args:
+            file_path(str): 削除するCSVファイルのパス
+
+        Returns:
+            result(bool): 実行結果
+        '''
         # ファイル名の引数に.csvが書かれていなかった場合の救済
-        if not '.csv' in file_name:
-            file_name = f'{file_name}.csv'
+        if not '.csv' in file_path:
+            file_path = f'{file_path}.csv'
 
-        # dataディレクトリに格納するためのパスを指定
-        file_path = f'../data/{file_name}'
-
-        # 既に引数のファイルが存在する場合は追記、そうでない場合は上書き（新規作成）
-        mode = 'a' if os.path.exists(file_path) else 'w'
-
-        with open(file_path, mode, encoding = 'UTF-8', newline = '') as csvfile:
-            fieldnames = data[0].keys() if data else []
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-
-            if mode == 'w' and add_header:
-                writer.writeheader()
-
-            for row in data:
-                writer.writerow(row)
+        try:
+            if os.path.isfile(file_path):
+                os.remove(file_path)
+            else:
+                self.log.info(f'削除対象のCSVがありません\nファイルパス: {file_path}')
+                return False
+        except Exception as e:
+            self.log.error(f'CSVの削除処理に失敗しました\nファイルパス: {file_path}\n{e}')
+            return False
 
         return True
 
