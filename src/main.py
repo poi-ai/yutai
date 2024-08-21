@@ -575,7 +575,7 @@ class Main():
         if shoken == 2:
             result, steal_list = self.get_steal_list()
             if result == False:
-                self.log.error('steal_list.csvの取得処理に失敗しました\n{e}')
+                self.log.error(f'steal_list.csvの取得処理に失敗しました\n{steal_list}')
                 self.steal_list = []
             else:
                 # 銘柄コードのみ取得
