@@ -21,7 +21,7 @@ class Steal(Main):
 
     def __del__(self):
         self.delete_steal_file()
-        self.delete_csv('./priority_steal_list.csv')
+        self.output.delete_csv('./priority_steal_list.csv')
 
     def main(self):
         '''メイン処理'''
@@ -30,7 +30,7 @@ class Steal(Main):
         if result == False:
             self.log.error(f'監視/自動注文対象銘柄CSVの取得に失敗\n{steal_list}')
             return False
-            
+
         # TODO 今は在庫が補充された銘柄のみpriority_steal_listにあるが、
         # いずれは在庫ないのも入れて、リミッター解除後にはそっちも処理するようにしたい
 

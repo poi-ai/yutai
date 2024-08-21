@@ -50,17 +50,27 @@ class Output():
                 # 既に引数のファイルが存在する場合は追記、そうでない場合は上書き（新規作成）
                 mode = 'a' if os.path.exists(file_path) else 'w'
 
-            with open(file_path, mode, encoding = 'UTF-8', newline = '') as csvfile:
-                fieldnames = data[0].keys() if data else []
-                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            # データがdict型の場合
+            if isinstance(data, dict):
+                with open(file_path, mode, encoding = 'UTF-8', newline = '') as csvfile:
+                    fieldnames = data[0].keys() if data else []
+                    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
-                if mode == 'w' and add_header:
-                    writer.writeheader()
+                    if mode == 'w' and add_header:
+                        writer.writeheader()
 
-                for row in data:
-                    writer.writerow(row)
+                    for row in data:
+                        writer.writerow(row)
+            # データがlist型の場合
+            else:
+                with open(file_path, mode, encoding='UTF-8', newline='') as csvfile:
+                    writer = csv.writer(csvfile)
+
+                    for row in data:
+                        writer.writerow(row)
+
         except Exception as e:
-            self.log.error('CSV出力に失敗しました\n{e}')
+            self.log.error(f'CSV出力に失敗しました\n{e}')
             return False
 
         return True

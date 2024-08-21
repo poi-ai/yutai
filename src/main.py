@@ -684,7 +684,12 @@ class Main():
 
         # 在庫の有無で別のリストに追加 TODO いずれ優先フラグを立てる
         for steal in steal_list:
-            zaiko = zaiko_info[steal[0]]
+            try:
+                zaiko = zaiko_info[steal[0]]['stock_num']
+            except Exception as e:
+                self.log.error(f'在庫情報抽出処理でエラー\n{e}')
+                continue
+
             if zaiko != None:
                 if zaiko > 0:
                     #steal[4] = 1
@@ -706,6 +711,7 @@ class Main():
                                       file_name = 'priority_steal_list.csv',
                                       add_header = True,
                                       add_time = False,
+                                      data_folder = False,
                                       mode = 'w')
 
     def test(self):
