@@ -70,7 +70,7 @@ class Order():
                              timeout = (connect_timeout, read_time_out))
         except requests.exceptions.ConnectTimeout as e:
             self.log.error(f'タイムアウトエラー\n{e}')
-            return False, None
+            return False, 1
         except Exception as e:
             self.log.error(f'接続に失敗\n{e}')
             return False, None
@@ -154,7 +154,12 @@ class Order():
         }
 
         try:
-            r = session.post(f'https://trade.smbcnikko.co.jp/OdrMng/{url_id}/sinyo/tku_odr/exec', data = post_info)
+            r = session.post(f'https://trade.smbcnikko.co.jp/OdrMng/{url_id}/sinyo/tku_odr/exec', 
+                             data = post_info,
+                             timeout = (10, 10)) # 接続タイムアウト10秒
+        except requests.exceptions.ConnectTimeout as e:
+            self.log.error(f'タイムアウトエラー\n{e}')
+            return False, 1
         except:
             self.log.error('接続に失敗')
             return False, None

@@ -176,15 +176,13 @@ class Steal(Main):
 
                 # リミッターチェック
                 if self.limiter:
-                    self.log.info('メンテ明けタイミング調査終了')
-                    exit()
-                    #time.sleep(3)
+                    time.sleep(3)
                 # リミットがかかっていない場合
                 else:
                     # それでも0.5秒のマージンを取っておかないと過剰エラーになるので待つ
                     time.sleep(0.4)
-                    # 100周したらリミッターをかける
-                    if counter >= 100:
+                    # 50周したらリミッターをかける(全銘柄50周ではなく1銘柄で1周扱い)
+                    if counter >= 50:
                         self.limiter = True
 
             # 除外した銘柄情報をメインリストに反映
@@ -212,6 +210,9 @@ class Steal(Main):
         # 一般売注文確認画面へリクエストを送る
         result, soup = self.smbc.order.confirm(self.smbc_session, stock_code, num)
         if result == False:
+            # タイムアウトエラーの場合は在庫不足と同じ扱いにする
+            if soup == 1:
+                return 4
             return 2
 
         soup_text = soup.text
@@ -234,7 +235,7 @@ class Steal(Main):
         # 取扱チェック ここでの非取扱は東証ではなくSMBC側が指定したものなので、貸借銘柄でも出る
         if 'NOL51305E' in soup_text:
             self.log.warning('一般信用非取扱銘柄のため注文できません')
-            return 4
+            return 1
 
         # 在庫チェック
         if 'NOL75401E' in soup_text or 'NOL75400E' in soup_text:
@@ -279,19 +280,27 @@ class Steal(Main):
         # 注文リクエストを送る
         result, soup = self.smbc.order.order(self.smbc_session, stock_code, num, token_id, url_id, order_date)
         if result == False:
+            # タイムアウトエラーの場合は在庫不足と同じ扱いにする
+            if soup == 1:
+                return 4
             return 2
 
         soup_text = soup.text
 
         # パスワードチェック
         if 'NOL76511E' in soup_text:
-            self.log.error('パスワードが正しくありません')
+            self.log.error('パスワードが正しくありません(注文確認画面)')
             return -1
 
         # 注文執行日エラー
         if 'NOL21018E' in soup_text:
-            self.log.error('注文執行日が正しくありません')
+            self.log.error('注文執行日が正しくありません(注文確認画面)')
             return -1
+
+        # 在庫チェック
+        if 'NOL75401E' in soup_text or 'NOL75400E' in soup_text:
+            self.log.info('一般信用在庫が足りないため注文できません(注文確認画面)')
+            return 4
 
         # 注文完了チェック
         if not '売り注文を受付ました' in soup_text:
