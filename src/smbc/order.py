@@ -64,9 +64,15 @@ class Order():
         else:
             connect_timeout, read_time_out = 1, 2 # 接続タイムアウト1秒、HTML読み込みタイムアウトは2秒
 
+        # User-agent指定
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
+        }
+
         try:
             r = session.post(url = 'https://trade.smbcnikko.co.jp/OdrMng/000000000000/sinyo/tku_odr/siji',
                              data = post_info,
+                             headers = headers,
                              timeout = (connect_timeout, read_time_out))
         except requests.exceptions.ConnectTimeout as e:
             self.log.error(f'タイムアウトエラー\n{e}')
@@ -153,9 +159,15 @@ class Order():
             'nyuKeroKbn2': 'pcw00'
         }
 
+        # User-agent指定
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
+        }
+
         try:
-            r = session.post(f'https://trade.smbcnikko.co.jp/OdrMng/{url_id}/sinyo/tku_odr/exec', 
+            r = session.post(f'https://trade.smbcnikko.co.jp/OdrMng/{url_id}/sinyo/tku_odr/exec',
                              data = post_info,
+                             headers = headers,
                              timeout = (10, 10)) # 接続タイムアウト10秒
         except requests.exceptions.ConnectTimeout as e:
             self.log.error(f'タイムアウトエラー\n{e}')
