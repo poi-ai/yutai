@@ -376,7 +376,7 @@ class Main():
         return True
 
     def smbc_notice(self):
-        '''SMBC日興証券の設定ファイルで指定した銘柄コードの一般在庫をLINEで通知する'''
+        '''SMBC日興証券の設定ファイルで指定した銘柄コードの一般在庫をLINEかメールで通知する'''
 
         # 設定データのチェック
         self.notice_check(shoken = 2)
@@ -468,37 +468,59 @@ class Main():
 
         self.log.info('SMBC日興証券一般在庫取得終了')
 
-        # 在庫情報のLINE通知
-        self.log.info('SMBC日興証券一般在庫LINE通知処理開始')
-        message = ''
-        for code in mix_code_list.keys():
-            if mix_code_list[code] == None:
-                message += f'証券コード: {(code)} の在庫データがありません\n'
-                stock_num = -1
+
+        # TODO テストなしで流すため念のためtry文を設定する
+        try:
+            self.log.info('SMBC日興証券記録用CSV出力開始')
+            message = ''
+            for code in mix_code_list.keys():
+                if mix_code_list[code] == None:
+                    message += f'証券コード: {(code)} の在庫データがありません\n'
+                    stock_num = -1
+                else:
+                    stock = mix_code_list[code]
+                    message += f"({stock['stock_code']}){stock['stock_name']} 在庫数: {stock['stock_num']}株\n"
+                    stock_num = stock['stock_num']
+
+                # 記録用CSV出力
+                result, error_message = self.output.zaiko_csv(company = 'smbc',
+                                                            stock_code = str(code),
+                                                            stock_num = stock_num,
+                                                            csv_name = config.CSV_NAME)
+                if result == False:
+                    self.log.error(error_message)
+            self.log.info('SMBC日興証券記録用CSV出力終了')
+
+            # メール送信かLINE送信か
+            if config.MAIL_FLAG:
+                self.log.info('SMBC日興証券一般在庫メール通知処理開始')
+                result, error_message = self.output.send_gmail(from_address = config.FROM_ADDRESS,
+                                                from_pass = config.FROM_PASS,
+                                                to_address = config.TO_ADDRESS,
+                                                subject = config.SUBJECT,
+                                                body = str(message)
+                )
+                if result:
+                    self.log.info('SMBC日興証券一般在庫メール通知処理終了')
+                else:
+                    self.log.error(f'SMBC日興証券一般在庫メール通知でエラー\n{e}')
             else:
-                stock = mix_code_list[code]
-                message += f"({stock['stock_code']}){stock['stock_name']} 在庫数: {stock['stock_num']}株\n"
-                stock_num = stock['stock_num']
+                # 在庫情報のLINE通知
+                self.log.info('SMBC日興証券一般在庫LINE通知処理開始')
 
-            # 記録用CSV出力
-            result, error_message = self.output.zaiko_csv(company = 'smbc',
-                                                          stock_code = str(code),
-                                                          stock_num = stock_num,
-                                                          csv_name = config.CSV_NAME)
-            if result == False:
-                self.log.error(error_message)
+                # 1000文字を超える場合は分割(念のため990文字ごとに)
+                notice_message_list = [message[i:i + 990] for i in range(0, len(message), 990)]
 
-        # 1000文字を超える場合は分割(念のため990文字ごとに)
-        notice_message_list = [message[i:i + 990] for i in range(0, len(message), 990)]
+                # 分割したものを一つずつ送信
+                for message in notice_message_list:
+                    # LINEで送信
+                    result, error_message = self.output.line(message, self.line_token)
+                    if result == False:
+                        self.log.error(error_message)
 
-        # 分割したものを一つずつ送信
-        for message in notice_message_list:
-            # LINEで送信
-            result, error_message = self.output.line(message, self.line_token)
-            if result == False:
-                self.log.error(error_message)
-
-        self.log.info('SMBC日興証券一般在庫LINE通知処理終了')
+                self.log.info('SMBC日興証券一般在庫LINE通知処理終了')
+        except Exception as e:
+            self.log.error(f'メール送信用修正処理でエラー\n{e}')
 
         # 在庫確保の優先順を決めてCSVに保存
         self.log.info('SMBC日興証券の在庫順ソートCSV出力処理開始')

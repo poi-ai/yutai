@@ -44,3 +44,16 @@ LINE_NOTIFY_API_KEY = ''
 
 # スローで処理するか(権利確定日までまだ期間があるなどの場合にアクセス頻度を抑えるか、bool)
 SLOW_PROCESS = True
+
+### メール設定 ###
+
+# メール送信するか
+MAIL_FLAG = False
+# 送信元アドレス
+FROM_ADDRESS = 'example@gmail.com'
+# 送信元アカウントパスワード
+FROM_PASS = 'apppass'
+# 送信先アドレス
+TO_ADDRESS = 'test@gmail.com'
+# 件名
+SUBJECT = '在庫補充通知'

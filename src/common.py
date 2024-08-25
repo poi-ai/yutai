@@ -5,10 +5,13 @@ import json
 import numpy as np
 import os
 import pandas as pd
+import smtplib
 import sys
 import re
 import requests
 from datetime import datetime, timedelta
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 class Output():
     def __init__(self, log):
@@ -221,6 +224,46 @@ class Output():
                 return False, f'在庫情報のCSV出力に失敗しました\n{e}'
 
         return True, None
+
+    def send_gmail(self, from_address, from_pass, to_address, subject, body):
+        '''
+        Gmailからメールを送信する
+
+        Args:
+            from_address(str): 送信元メールアドレス
+            from_pass(str): 送信元メールアドレスのパスワード(外部連携用=アプリパスワード)
+            to_address(str): 送信先メールアドレス
+            subject(str): 件名
+            body(str): 本文
+
+        Returns:
+            result(bool): 実行結果
+            error_message(str): エラーメッセージ
+        '''
+        # SMTPサーバーの設定
+        smtp_server = 'smtp.gmail.com'
+        smtp_port = 587
+
+        # メールの作成
+        msg = MIMEMultipart()
+        msg['From'] = from_address
+        msg['To'] = to_address
+        msg['Subject'] = subject
+
+        msg.attach(MIMEText(body, 'plain'))
+
+        # SMTPサーバーに接続してメールを送信
+        try:
+            server = smtplib.SMTP(smtp_server, smtp_port)
+            server.starttls()
+            server.login(from_address, from_pass)
+            text = msg.as_string()
+            server.sendmail(from_address, to_address, text)
+            return True, None
+        except Exception as e:
+            return False, str(e)
+        finally:
+            server.quit()
 
 class Log():
     '''
