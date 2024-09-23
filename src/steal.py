@@ -16,6 +16,7 @@ class Steal(Main):
         self.smbc_session = False
         self.limiter = True
         self.zaraba = False
+        self.excessive_access_count = 0
         # 稼働中同一プロセスチェック
         if self.check_steal_file_exists: return
         self.create_steal_file()
@@ -161,6 +162,16 @@ class Steal(Main):
 
                             # 過剰アクセスエラーの場合は0.5秒待機
                             elif result == 6:
+                                # 過剰アクセスするとSMBCに怒られるので監視しとく
+                                self.excessive_access_count += 1
+                                if self.excessive_access_count == 1 or self.excessive_access_count == 5 or self.excessive_access_count >= 10:
+                                    self.output.line(f'steal.pyで過剰アクセスエラーが出ています {self.excessive_access_count}回目', config.LINE_NOTIFY_API_KEY)
+                                    if self.excessive_access_count >= 10:
+                                        self.log.error(f'10回以上過剰アクセスエラーが出ているため処理を強制終了します')
+                                        self.output.line(f'10回以上過剰アクセスエラーが出ているため処理を強制終了します')
+                                        exit()
+
+
                                 continue
 
                             # 他,続行不可能エラー(-1)の場合などは一旦ループを抜けてループ外で処理させる
@@ -169,6 +180,14 @@ class Steal(Main):
 
                 # 過剰アクセスエラーの場合は0.2秒待機(=リミッターなしでも+0.5秒で最小でも0.7秒の間隔)
                 elif result == 6:
+                    # 過剰アクセスするとSMBCに怒られるので監視しとく
+                    self.excessive_access_count += 1
+                    if self.excessive_access_count == 1 or self.excessive_access_count == 5 or self.excessive_access_count >= 10:
+                        self.output.line(f'steal.pyで過剰アクセスエラーが出ています {self.excessive_access_count}回目', config.LINE_NOTIFY_API_KEY)
+                        if self.excessive_access_count >= 10:
+                            self.log.error(f'10回以上過剰アクセスエラーが出ているため処理を強制終了します')
+                            self.output.line(f'10回以上過剰アクセスエラーが出ているため処理を強制終了します')
+                            exit()
                     time.sleep(0.2)
 
                 # リミッターチェック
@@ -307,6 +326,11 @@ class Steal(Main):
         if 'NOL21018E' in soup_text:
             self.log.error('注文執行日が正しくありません(注文確認画面)')
             return -1
+
+        # 過剰アクセスエラー
+        if 'NOL76980E' in soup_text:
+            self.log.warning('過剰アクセスのため注文できません(注文確認画面)')
+            return 6
 
         # 在庫チェック
         if 'NOL75401E' in soup_text or 'NOL75400E' in soup_text:
