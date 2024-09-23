@@ -12,6 +12,7 @@ class Main():
         self.steal_list = []
         try:
             self.output = common.Output(self.log)
+            self.culc = common.Culc()
             self.kabucom = kabucom.Kabucom(self.log,
                                         config.KABUCOM_ACCOUNT_NUMBER,
                                         config.KABUCOM_PASSWORD)

@@ -15,6 +15,7 @@ class Steal(Main):
         super().__init__()
         self.smbc_session = False
         self.limiter = True
+        self.zaraba = False
         # 稼働中同一プロセスチェック
         if self.check_steal_file_exists: return
         self.create_steal_file()
@@ -33,10 +34,6 @@ class Steal(Main):
 
         # TODO 今は在庫が補充された銘柄のみpriority_steal_listにあるが、
         # いずれは在庫ないのも入れて、リミッター解除後にはそっちも処理するようにしたい
-
-        # TODO NTPと組み込み関数(datetimeの時間のズレを確認しておく)
-        self.log.info(f'NTP: {self.ntp()}')
-        self.log.info(f'datetime: {datetime.now()}')
 
         # 時間チェック
         result = self.time_manage()
@@ -100,7 +97,7 @@ class Steal(Main):
                     self.log.error('パスワードが誤っているため処理を終了します')
                     return False
 
-                # チェックした銘柄を監視対象から外す(余力不足/非取扱銘柄/注文成功)
+                # チェックした銘柄を監視対象から外す(余力不足/非取扱銘柄/注文成功の場合)
                 elif result == 1:
                     # 処理対象リストから外す
                     tmp_list = [sublist for sublist in tmp_list if sublist[0] != target[0]]
@@ -207,8 +204,22 @@ class Steal(Main):
         stock_code = target[0]
         num = target[1]
 
+        # ザラ場/お昼休み中か取引時間外か
+        if self.zaraba == True:
+            # ザラ場時間中はS高で指値 TODO 既にS高(付近)の場合などクロスできない場合のチェック追加
+            order_price = self.get_sdaka(stock_code, datetime.now().strftime("%Y/%m/%d"))
+
+            # 取得できなかった場合は対象銘柄から外すエラーとして返す
+            if order_price == None:
+                self.log.warning('CSVからS高価格が取得できませんでした')
+                return 1
+
+        else:
+            # 取引時間外の場合は成行で注文
+            order_price = None
+
         # 一般売注文確認画面へリクエストを送る
-        result, soup = self.smbc.order.confirm(self.smbc_session, stock_code, num)
+        result, soup = self.smbc.order.confirm(self.smbc_session, stock_code, num, order_price)
         if result == False:
             # タイムアウトエラーの場合は在庫不足と同じ扱いにする
             if soup == 1:
@@ -313,11 +324,14 @@ class Steal(Main):
             ### デバッグ用ここまで
             return 2
 
-        self.log.info(f'注文が完了しました 証券コード: {stock_code} 株数: {num}')
-        self.output.line(f'注文が完了しました 証券コード: {stock_code} 株数: {num}', config.LINE_NOTIFY_API_KEY)
+        if order_price == None:
+            self.log.info(f'注文が完了しました 証券コード: {stock_code} 株数: {num} 注文価格: 成行')
+            self.output.line(f'注文が完了しました 証券コード: {stock_code} 株数: {num} 注文価格: 成行', config.LINE_NOTIFY_API_KEY)
+        else:
+            self.log.info(f'注文が完了しました 証券コード: {stock_code} 株数: {num} 注文価格: {order_price}')
+            self.output.line(f'注文が完了しました 証券コード: {stock_code} 株数: {num} 注文価格: {order_price}', config.LINE_NOTIFY_API_KEY)
 
         return 1
-
 
     def time_manage(self):
         '''時間調整を行う'''
@@ -370,9 +384,16 @@ class Steal(Main):
         elif now.hour == 20 and now.minute == 19:
             target_time = datetime(now.year, now.month, now.day, 20, 20)
 
-        # ザラ場直前・場中・昼休みは処理を行わない TODO いずれ場中でも注文できるように修正する
-        elif (now.hour == 8 and now.minute > 50) or 9 <= now.hour <= 15:
-            self.log.info('取引時間中のため監視/注文処理は行いません')
+        # ザラ場直前から大引け直前(8:40~14:50)まではS高価格で注文を入れる
+        elif (now.hour == 8 and now.minute > 40) or (9 <= now.hour <= 13) or (now.hour == 14 and now.minute <= 50):
+            if self.zaraba == False:
+                self.log.info('ザラ場モードで実行します')
+            self.zaraba = True
+            return True
+
+        # 大引け直前から注文禁止時間(14:51~15:00)の場合は処理を停止する
+        elif now.hour == 14 and now.minute > 50:
+            self.log.info('取引終了時間直前のため監視/注文処理は行いません')
             return False
 
         elif target_time == False:
@@ -440,6 +461,30 @@ class Steal(Main):
             except Exception as e:
                 self.log.error(f'NTPサーバーからの時刻取得処理に失敗しました サーバー: {server}\n{e}')
                 raise # TODO ここの対応どうするか考える 今は一旦エラーとして落とす
+
+    def get_sdaka(self, stock_code, date):
+        '''
+        S高の価格をCSVから取得する
+
+        Args:
+            stock_code(str): 証券コード
+            date(str): 対象の日付(yyyy/mm/ddフォーマット)
+
+        Returns:
+            price(float): S高価格
+                ※CSVがない場合やCSV内に記載がない場合はNone
+        '''
+        file_path = './owarine.csv'
+        if not os.path.exists(file_path):
+            return None
+
+        with open(file_path, mode='r', encoding = 'utf-8') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                if row['stock_code'] == str(stock_code) and row['yoku_date'] == date:
+                    return row['yoku_sdaka']
+
+        return None
 
     def create_steal_file(self):
         '''プロセス使用中のファイルを作成する'''

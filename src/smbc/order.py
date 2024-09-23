@@ -14,20 +14,23 @@ class Order():
         '''
         self.log = log
 
-    def confirm(self, session, stock_code, num):
+    def confirm(self, session, stock_code, num, order_price):
         '''
         一般信用売り注文確認画面へリクエストを送る
 
         Args:
             session(requests.sessions.Session): ログイン状態のセッション
             stock_code(str): 対象銘柄
-            num(int): 発注数量
+            num(int): 注文数量
+            order_price(float or int): 注文価格 ※成行の場合はNone
 
         Returns:
             result(bool): 実行結果
             soup(bs4.BeautifulSoup): レスポンスのHTML
 
         '''
+
+        # 共通注文条件
         post_info = {
             'odrJoken': '1',               # 1: 通常注文、2: 逆指値注文
             'execCnd': '0',
@@ -43,11 +46,8 @@ class Order():
             'sijyoKbn': '1',
             'sinyoToriKbn': '1',           # 0: 制度、1: 信用
             'suryo': num,                  # 株数
-            #'kakaku': '',                 # 指値注文価格
-            'nariSasiKbn': '2',            # 1: 指値、2: 成行
             #'cnd11': '2',                 # 寄り成り
             #'cnd12': '3',                 # 引け成り
-            'cnd17': '0',                  # 条件なし成行
             'yukokikan': '1',              # 1: 当日中、9: 期間指定
             'yukokigenDate': '',           # 注文有効期間
             'kozaKbnSinyo': '1',           # 0: 一般口座、1: 特定口座
@@ -55,6 +55,16 @@ class Order():
             'execUrl.x': '99',             # 押下したボタンのx軸
             'execUrl.y': '18'              # 押下したボタンのy軸
         }
+
+        # 取引時間外の成行注文の場合
+        if order_price == None:
+            post_info['nariSasiKbn'] =  '2'     # 1: 指値、2: 成行
+            post_info['cnd17'] = '0'            # 条件なし成行
+
+        # 取引時間中の指値の場合
+        else:
+            post_info['nariSasiKbn'] =  '1'     # 1: 指値、2: 成行
+            post_info['kakaku'] = order_price   # 指値注文価格
 
         # タイムアウト時間を設定
         # 5時のメンテ明けの場合はセッションが切れるため、早めに接続アウトとする
