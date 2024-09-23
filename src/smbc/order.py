@@ -64,7 +64,8 @@ class Order():
         # 取引時間中の指値の場合
         else:
             post_info['nariSasiKbn'] =  '1'     # 1: 指値、2: 成行
-            post_info['kakaku'] = order_price   # 指値注文価格
+            post_info['cnd17'] = '0'            # 条件なし指値
+            post_info['kakaku'] = str(order_price)   # 指値注文価格
 
         # タイムアウト時間を設定
         # 5時のメンテ明けの場合はセッションが切れるため、早めに接続アウトとする
@@ -104,7 +105,7 @@ class Order():
 
         return True, soup
 
-    def order(self, session, stock_code, num, token_id, url_id, order_date):
+    def order(self, session, stock_code, num, token_id, url_id, order_date, order_price):
         '''
         一般信用売り注文リクエストを送る
 
@@ -115,12 +116,14 @@ class Order():
             token_id(str): トークンID(注文確認画面で発行)
             url_id(str): URL ID(注文確認画面で発行)
             order_date(str): 注文日(yyyymmdd形式)
+            order_price(float or int): 注文価格 ※成行の場合はNone
 
         Returns:
             result(bool): 実行結果
             soup(bs4.BeautifulSoup): レスポンスのHTML
 
         '''
+        # 共通注文条件
         post_info = {
             'specifyMeig': '1',
             'sinkbShitei': '0',
@@ -128,8 +131,6 @@ class Order():
             'bbaiKbn': '1',
             'sijyoKbn': '1',
             'execCnd': '0',
-            'nariSasiKbn': '2',
-            'kakaku': '',
             'suryo': num,
             'odrExecYmd': order_date,                  # 注文日
             'expcheck': '0',
@@ -173,6 +174,16 @@ class Order():
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
         }
+
+        # 取引時間外の成行注文の場合
+        if order_price == None:
+            post_info['nariSasiKbn'] =  '2'     # 1: 指値、2: 成行
+            post_info['kakaku'] =  ''
+
+        # 取引時間中の指値の場合
+        else:
+            post_info['nariSasiKbn'] =  '1'     # 1: 指値、2: 成行
+            post_info['kakaku'] = str(order_price)
 
         try:
             r = session.post(f'https://trade.smbcnikko.co.jp/OdrMng/{url_id}/sinyo/tku_odr/exec',

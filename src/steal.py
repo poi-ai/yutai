@@ -234,6 +234,7 @@ class Steal(Main):
         '''
         stock_code = target[0]
         num = target[1]
+        order_price = None
 
         # ザラ場/お昼休み中か取引時間外か
         if self.zaraba == True:
@@ -244,10 +245,6 @@ class Steal(Main):
             if order_price == None:
                 self.log.warning('CSVからS高価格が取得できませんでした')
                 return 1
-
-        else:
-            # 取引時間外の場合は成行で注文
-            order_price = None
 
         # 一般売注文確認画面へリクエストを送る
         result, soup = self.smbc.order.confirm(self.smbc_session, stock_code, num, order_price)
@@ -320,7 +317,7 @@ class Steal(Main):
             order_date = holiday.next_exchange_workday(now).strftime("%Y%m%d")
 
         # 注文リクエストを送る
-        result, soup = self.smbc.order.order(self.smbc_session, stock_code, num, token_id, url_id, order_date)
+        result, soup = self.smbc.order.order(self.smbc_session, stock_code, num, token_id, url_id, order_date, order_price)
         if result == False:
             # タイムアウトエラーの場合は在庫不足と同じ扱いにする
             if soup == 1:
