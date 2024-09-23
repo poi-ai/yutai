@@ -13,17 +13,29 @@ class Steal(Main):
     '''SMBC日興証券の空売り注文を入れる'''
     def __init__(self):
         super().__init__()
+        # SMBC日興証券のセッションを持っているか
         self.smbc_session = False
+        # アクセス間隔
         self.limiter = True
+        # ザラ場の取引か時間外の取引か
         self.zaraba = False
+        # 過剰アクセスエラー数
         self.excessive_access_count = 0
+        # 同一プロセスが起動しているか
+        self.multi_process = False
+
         # 稼働中同一プロセスチェック
-        if self.check_steal_file_exists: return
+        if self.check_steal_file_exists():
+            self.log.info('同一プロセスが起動しているため処理を終わります')
+            self.multi_process = True
+            exit()
         self.create_steal_file()
 
     def __del__(self):
-        self.delete_steal_file()
-        self.output.delete_csv('./priority_steal_list.csv')
+        # 多重プロセス起動以外の場合のみ使用したファイルを削除する
+        if self.multi_process == False:
+            self.delete_steal_file()
+            self.output.delete_csv('./priority_steal_list.csv')
 
     def main(self):
         '''メイン処理'''
@@ -349,11 +361,11 @@ class Steal(Main):
             return 2
 
         if order_price == None:
-            self.log.info(f'注文が完了しました 証券コード: {stock_code} 株数: {num} 注文価格: 成行')
-            self.output.line(f'注文が完了しました 証券コード: {stock_code} 株数: {num} 注文価格: 成行', config.LINE_NOTIFY_API_KEY)
+            self.log.info(f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: 成行')
+            self.output.line(f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: 成行', config.LINE_NOTIFY_API_KEY)
         else:
-            self.log.info(f'注文が完了しました 証券コード: {stock_code} 株数: {num} 注文価格: {order_price}')
-            self.output.line(f'注文が完了しました 証券コード: {stock_code} 株数: {num} 注文価格: {order_price}', config.LINE_NOTIFY_API_KEY)
+            self.log.info(f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: {order_price}円')
+            self.output.line(f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: {order_price}円', config.LINE_NOTIFY_API_KEY)
 
         return 1
 
@@ -512,19 +524,19 @@ class Steal(Main):
 
     def create_steal_file(self):
         '''プロセス使用中のファイルを作成する'''
-        file_path = "/tmp/steal"
+        file_path = '../tmp/steal'
         with open(file_path, "w"):
             pass
         return True
 
     def check_steal_file_exists(self):
         '''他に起動しているプロセスがあるかチェックする'''
-        file_path = "/tmp/steal"
+        file_path = '../tmp/steal'
         return os.path.exists(file_path)
 
     def delete_steal_file(self):
         '''プロセス使用中のファイルを削除する'''
-        file_path = "/tmp/steal"
+        file_path = '../tmp/steal'
         if os.path.exists(file_path):
             os.remove(file_path)
 
