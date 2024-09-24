@@ -94,10 +94,10 @@ class Output():
             if os.path.isfile(file_path):
                 os.remove(file_path)
             else:
-                self.log.info(f'削除対象のCSVがありません\nファイルパス: {file_path}')
+                self.log.info(f'削除対象のCSVがありません')
                 return False
         except Exception as e:
-            self.log.error(f'CSVの削除処理に失敗しました\nファイルパス: {file_path}\n{e}')
+            self.log.error(f'CSVの削除処理に失敗しました')
             return False
 
         return True

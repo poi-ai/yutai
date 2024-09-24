@@ -4,6 +4,7 @@ import ntplib
 import os
 import time
 import re
+import sys
 import holiday
 from main import Main
 from datetime import datetime
@@ -24,6 +25,14 @@ class Steal(Main):
         # 同一プロセスが起動しているか
         self.multi_process = False
 
+        # 単一銘柄狙い撃ちチェック
+        if len(sys.argv) == 3:
+            _, self.uni_stock_code, self.uni_stock_num = sys.argv
+            self.uni_flag = True
+        else:
+            self.uni_stock_code, self.uni_stock_num = None, None
+            self.uni_flag = False
+
         # 稼働中同一プロセスチェック
         if self.check_steal_file_exists():
             self.log.info('同一プロセスが起動しているため処理を終わります')
@@ -39,19 +48,27 @@ class Steal(Main):
 
     def main(self):
         '''メイン処理'''
-        # 空売り監視/自動注文対象銘柄の取得
-        result, steal_list = self.get_steal_list()
-        if result == False:
-            self.log.error(f'監視/自動注文対象銘柄CSVの取得に失敗\n{steal_list}')
-            return False
 
-        # TODO 今は在庫が補充された銘柄のみpriority_steal_listにあるが、
-        # いずれは在庫ないのも入れて、リミッター解除後にはそっちも処理するようにしたい
+        # 単一銘柄狙い撃ちの場合はsteal_listでなくコマンドライン引数から取得
+        if self.uni_flag:
+            steal_list = [[str(self.uni_stock_code), str(self.uni_stock_num), 'hoge']]
+            # リミッターを外す
+            self.limiter = True
+            self.log.info(f'単一銘柄狙い撃ち処理を開始します 証券コード: {self.uni_stock_code}、株数: {self.uni_stock_num}株')
+        else:
+            # 空売り監視/自動注文対象銘柄の取得
+            result, steal_list = self.get_steal_list()
+            if result == False:
+                self.log.error(f'監視/自動注文対象銘柄CSVの取得に失敗\n{steal_list}')
+                return False
 
-        # 時間チェック
-        result = self.time_manage()
-        if result == False:
-            return False
+            # TODO 今は在庫が補充された銘柄のみpriority_steal_listにあるが、
+            # いずれは在庫ないのも入れて、リミッター解除後にはそっちも処理するようにしたい
+
+            # 時間チェック
+            result = self.time_manage()
+            if result == False:
+                return False
 
         # SMBCへログイン
         self.log.info('SMBC日興証券ログイン開始')
@@ -78,6 +95,11 @@ class Steal(Main):
 
         # 在庫チェック/注文処理
         while True:
+            # 単一銘柄狙い撃ちの場合、リミッターがかかったら(50アクセスしたら)処理終了
+            if self.uni_flag and self.limiter:
+                self.log.info('単一銘柄狙い撃ち処理を終了します')
+                return True
+
             # 監視/注文対象の銘柄がない場合は終了
             if len(steal_list) == 0: return True
 
