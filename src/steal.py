@@ -394,33 +394,45 @@ class Steal(Main):
         now = datetime.now()
         target_time = False
 
-        ## 全日共通時間判定
+        #############################################
+        ###     処理を停止させる時間帯のチェック    ###
+        #############################################
+
+        # 非営業日は恐らく在庫補充されなさそうなので、監視をやめる
+        if not holiday.is_exchange_workday(now):
+            return False
 
         # メンテナンス時間(2:00~3:59)なら処理を終了させる
-        # 2:00まで動いていたcronを止めるための処理、
-        # 5:00争奪戦処理は止めないようにするために、4時台に起動した処理は止めない
+        # 2:00まで動いていたcronを止めるための処理
+        # ただし、5:00争奪戦処理は止めないようにするために、メンテ中でも4時台に起動した処理は止めない
         if 2 <= now.hour <= 3:
             self.log.info('メンテナンス時間中なので処理を終了します\n')
             return False
-        # 22~24時はほぼ補充されないので監視対象から外す
-        elif 22 <= now.hour <= 24:
-            self.log.info('在庫のほぼ出ない時間帯(22~24時)なので処理を終了します')
+        ## 22~24時はほぼ補充されないので監視対象から外す TODO 一旦様子見で外す
+        #elif 22 <= now.hour <= 24:
+        #    self.log.info('在庫のほぼ出ない時間帯(22~24時)なので処理を終了します')
+        #    return False
+        # 6:30~8:00まではシステム上在庫が補充されないため処理を終了させる
+        elif (now.hour == 6 and now.minute >= 30) or now.hour == 7:
+            self.log.info('在庫が補充されない時間帯(6:30~8:00)なので処理を終了します')
             return False
-        # 朝もまあまずでないので6時になったら監視対象から外す
-        elif 6 <= now.hour <= 8:
-            self.log.info('在庫のほぼ出ない時間帯(6~8時)なので処理を終了します')
+        # 大引け直前から注文禁止時間(14:51~15:00)の場合は処理を停止する
+        elif now.hour == 14 and now.minute > 50:
+            self.log.info('取引終了時間直前のため監視/注文処理を終了します')
             return False
 
-        # メンテナンス時間(4:00~4:59)なら5:00:00:42まで待つ
+        #############################################
+        ###      処理を待機する時間帯のチェック     ###
+        #############################################
+
+        # ~~5時のメンテ明けでは必ずセッションが切れるので、セッション接続(ログイン)処理の前に5時まで待機する~~
+        # メンテナンス時間(4:00~4:59)なら5:00:42まで待つ
         if now.hour == 4:
             target_time = datetime(now.year, now.month, now.day, 5, 0, 42)
             # 争奪戦用にリミッター解除
             self.limiter = False
 
-        ## 非営業日は恐らく在庫補充されなさそうなので、監視をやめる
-        if not holiday.is_exchange_workday(now):
-            return False
-
+        # ~~17:00の取引再開ではセッションが切れないため、16:59まで待機→セッション接続(ログイン)→17:00:03まで待機とする~~
         # 大引け後注文中断時間(15:00~16:58)なら16:59まで待つ
         if now.hour == 15 or (now.hour == 16 and now.minute < 59):
             target_time = datetime(now.year, now.month, now.day, 16, 59)
@@ -431,6 +443,7 @@ class Steal(Main):
             # 争奪戦用にリミッター解除
             self.limiter = False
 
+        # ~~20:20の取引再開でもセッションは切れないため、20:19まで待機→セッション接続(ログイン)→20:20:00まで待機とする~~
         # 注文中断時間(20:15~20:18)なら20:19まで待つ
         elif now.hour == 20 and (15 <= now.minute < 19):
             target_time = datetime(now.year, now.month, now.day, 20, 19)
@@ -439,19 +452,23 @@ class Steal(Main):
         elif now.hour == 20 and now.minute == 19:
             target_time = datetime(now.year, now.month, now.day, 20, 20)
 
-        # ザラ場直前から大引け直前(8:40~14:50)まではS高価格で注文を入れる
-        elif (now.hour == 8 and now.minute > 40) or (9 <= now.hour <= 13) or (now.hour == 14 and now.minute <= 50):
+        #############################################
+        ###   注文価格を切り換える時間帯のチェック  ###
+        #############################################
+
+        # ザラ場直前から大引け直前(8:00~14:50)まではS高価格で注文を入れる ※それ以外の時間(ザラ場外)では成行で注文
+        if (8 <= now.hour <= 13) or (now.hour == 14 and now.minute <= 50):
             if self.zaraba == False:
                 self.log.info('ザラ場モードで実行します')
             self.zaraba = True
-            return True
+        else:
+            if self.zaraba == True:
+                self.log.info('取引時間外モードで実行します')
+            self.zaraba = False
 
-        # 大引け直前から注文禁止時間(14:51~15:00)の場合は処理を停止する
-        elif now.hour == 14 and now.minute > 50:
-            self.log.info('取引終了時間直前のため監視/注文処理は行いません')
-            return False
 
-        elif target_time == False:
+        # 待機時間が設定されていないならそのまま返す
+        if target_time == False:
             return True
 
         wait_time = (target_time - self.ntp()).total_seconds()
