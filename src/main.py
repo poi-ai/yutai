@@ -295,8 +295,9 @@ class Main():
                         notice_message += f'【({stock["stock_code"]}){stock["stock_name"][:10]}】\n在庫: {stock["order_num"]}/{stock["stock_num"]}株 プレ料: {stock["premium_lower"]}~{stock["premium_upper"]}円\n'
 
                     # 補完情報がある場合追加挿入する
-                    if not df is False:
-                        notice_message += self.create_stock_info_message(stock["stock_code"], df)
+                    # 補完情報は毎月人力で作らないといけないので一旦凍結
+                    #if not df is False:
+                    #    notice_message += self.create_stock_info_message(stock["stock_code"], df)
 
                     zaiko_exist_flag = True
                     break
