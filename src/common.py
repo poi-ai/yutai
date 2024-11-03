@@ -14,6 +14,8 @@ class Output():
     def __init__(self, log):
         self.log = log
         self.culc = Culc()
+        self.notify_token = ''
+        self.messaging_api_token = ''
 
     def output_csv(self, data, file_name, add_header = True, add_time = True, data_folder = True, mode = None):
         '''
@@ -120,13 +122,57 @@ class Output():
 
         return data_list
 
-    def line(self, message, token):
+    def set_notify_token(self, token):
         '''
-        LINEにメッセージを送信する
+        LINE Notifyのアクセストークンを設定する
+
+        Args:
+            token(str): LINE Notifyのアクセストークン
+
+        '''
+        self.set_notify_token = token
+        return
+
+    def set_messaging_api_token(self, token):
+        '''
+        LINE Messaging APIのアクセストークンを設定する
+
+        Args:
+            token(str): LINE Messaging APIのアクセストークン
+
+        '''
+        self.messaging_api_token = token
+        return
+
+    def line(self, message):
+        '''
+        LINEを用いてメッセージを送信する
 
         Args:
             message(str) : LINE送信するメッセージ内容
-            token(str): LINE Notifyのトークン
+
+        Returns:
+            result(bool): 実行結果
+            error_message(str): エラー内容
+
+        '''
+
+        # インスタンス変数に設定されているアクセストークンからMessaging APIを用いるかNotifyを用いるか判定する
+        # 優先はMessaging API
+        if self.messaging_api_token != '':
+            return self.send_messaging_api(message)
+        elif self.notify_token != '':
+            return self.send_notify(message)
+        else:
+            return False, f'LINE Messaging API、Notifyどちらのトークンも設定されていないためメッセージが送信できません\n送信メッセージ: {message}'
+
+    def send_messaging_api(self, message):
+        '''
+        LINE Messaging APIのブロードキャストを用いてメッセージを送信する
+        TODO いずれUUIDを用いたプッシュメッセージにしたい
+
+        Args:
+            message(str) : LINE送信するメッセージ内容
 
         Returns:
             result(bool): 実行結果
@@ -135,10 +181,54 @@ class Output():
         '''
 
         # ヘッダー設定
-        headers = {'Authorization': f'Bearer {token}'}
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {self.messaging_api_token}'
+        }
+
+        # ペイロード
+        data = {
+            'messages': [
+                {
+                    'type': 'text',
+                    'text': message
+                }
+            ]
+        }
+
+        # メッセージ送信
+        try:
+            r = requests.post('https://api.line.me/v2/bot/message/broadcast', headers = headers, json = data)
+        except Exception as e:
+            return False, f'LINE Messaging APIでのメッセージ送信に失敗しました\n{e}'
+
+        if r.status_code != 200:
+            try:
+                return False, f'LINE Messaging APIのメッセージ送信でエラーが発生しました\nステータスコード: {r.status_code}\nエラー内容: {json.dumps(json.loads(r.content), indent=2)}'
+            except Exception as e:
+                return False, f'LINE Messaging APIのメッセージ送信で発生しました\nエラー内容: {e}'
+
+        return True, ''
+
+
+    def send_notify(self, message):
+        '''
+        LINE Notifyを用いてメッセージを送信する
+
+        Args:
+            message(str) : LINE送信するメッセージ内容
+
+        Returns:
+            result(bool): 実行結果
+            error_message(str): エラー内容
+
+        '''
+
+        # ヘッダー設定
+        headers = {'Authorization': f'Bearer {self.notify_token}'}
 
         # メッセージ設定
-        data = {'message': f'{message}'}
+        data = {'message': message}
 
         # メッセージ送信
         try:
@@ -150,7 +240,7 @@ class Output():
             try:
                 return False, f'LINE Notify APIでエラーが発生しました\nステータスコード: {r.status_code}\nエラー内容: {json.dumps(json.loads(r.content), indent=2)}'
             except Exception as e:
-                return False, f'LINE Notify APIでエラーが発生しました\nステータスコード: {r.status_code}\nエラー内容: []'
+                return False, f'LINE Notify APIでエラーが発生しました\nエラー内容: {e}'
 
         return True, ''
 

@@ -25,6 +25,9 @@ class Steal(Main):
         # 同一プロセスが起動しているか
         self.multi_process = False
 
+        # LINE通知用トークンのチェック/設定
+        self.line_token_check()
+
         # 単一銘柄狙い撃ちチェック
         if len(sys.argv) == 3:
             _, self.uni_stock_code, self.uni_stock_num = sys.argv
@@ -45,6 +48,24 @@ class Steal(Main):
         if self.multi_process == False:
             self.delete_steal_file()
             self.output.delete_csv('./priority_steal_list.csv')
+
+    def line_token_check(self):
+        '''LINE通知で使用するトークンのチェックを行う'''
+
+        try:
+            # LINE Messaging APIのトークンを設定
+            if config.LINE_MESSAGING_API_TOKEN != '':
+                self.output.set_messaging_api_token(config.LINE_MESSAGING_API_TOKEN)
+            # ない場合はLINE Notifyのトークンを設定(~25/3まで)
+            elif config.LINE_NOTIFY_API_KEY != '':
+                self.output.set_notify_token(config.LINE_NOTIFY_API_KEY)
+            else:
+                self.log.warning('config.pyにLINE Messaging APIあるいはNotifyのトークンが設定がされていません')
+                exit()
+        except AttributeError as e:
+            self.log.error('config.pyにLINE Notifyトークン用の変数(LINE_NOTIFY_API_KEY)かMessaging APIトークン用の変数(LINE_MESSAGING_API_TOKEN)が定義されていません')
+            self.log.error(str(e))
+            exit()
 
     def main(self):
         '''メイン処理'''
@@ -199,7 +220,7 @@ class Steal(Main):
                                 # 過剰アクセスするとSMBCに怒られるので監視しとく
                                 self.excessive_access_count += 1
                                 if self.excessive_access_count == 1 or self.excessive_access_count == 5 or self.excessive_access_count >= 10:
-                                    self.output.line(f'steal.pyで過剰アクセスエラーが出ています {self.excessive_access_count}回目', config.LINE_NOTIFY_API_KEY)
+                                    self.output.line(f'steal.pyで過剰アクセスエラーが出ています {self.excessive_access_count}回目')
                                     if self.excessive_access_count >= 10:
                                         self.log.error(f'10回以上過剰アクセスエラーが出ているため処理を強制終了します')
                                         self.output.line(f'10回以上過剰アクセスエラーが出ているため処理を強制終了します')
@@ -217,7 +238,7 @@ class Steal(Main):
                     # 過剰アクセスするとSMBCに怒られるので監視しとく
                     self.excessive_access_count += 1
                     if self.excessive_access_count == 1 or self.excessive_access_count == 5 or self.excessive_access_count >= 10:
-                        self.output.line(f'steal.pyで過剰アクセスエラーが出ています {self.excessive_access_count}回目', config.LINE_NOTIFY_API_KEY)
+                        self.output.line(f'steal.pyで過剰アクセスエラーが出ています {self.excessive_access_count}回目')
                         if self.excessive_access_count >= 10:
                             self.log.error(f'10回以上過剰アクセスエラーが出ているため処理を強制終了します')
                             self.output.line(f'10回以上過剰アクセスエラーが出ているため処理を強制終了します')
@@ -381,10 +402,10 @@ class Steal(Main):
 
         if order_price == None:
             self.log.info(f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: 成行')
-            self.output.line(f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: 成行', config.LINE_NOTIFY_API_KEY)
+            self.output.line(f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: 成行')
         else:
             self.log.info(f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: {order_price}円')
-            self.output.line(f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: {order_price}円', config.LINE_NOTIFY_API_KEY)
+            self.output.line(f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: {order_price}円')
 
         return 1
 

@@ -5,7 +5,6 @@ import csv, sys, time, pandas as pd, traceback
 class Main():
     def __init__(self):
         self.log = common.Log()
-        self.line_token = ''
         self.first_stock_list = []
         self.second_stock_list = []
         self.third_stock_list = []
@@ -319,7 +318,7 @@ class Main():
         # 分割したものを一つずつ送信
         for message in notice_message_list:
             # LINEで送信
-            result, error_message = self.output.line(message, self.line_token)
+            result, error_message = self.output.line(message)
             if result == False:
                 self.log.error(error_message)
 
@@ -495,7 +494,7 @@ class Main():
         # 分割したものを一つずつ送信
         for message in notice_message_list:
             # LINEで送信
-            result, error_message = self.output.line(message, self.line_token)
+            result, error_message = self.output.line(message)
             if result == False:
                 self.log.error(error_message)
 
@@ -547,15 +546,19 @@ class Main():
         # config.pyかsteal_list.csvのどちらかに対象の銘柄の記載があるか
         target_flag = False
 
-        # LINE Notifyのトークンを設定ファイルから呼び出しチェックする
         try:
-            if config.LINE_NOTIFY_API_KEY == '':
-                self.log.warning('config.pyにLINE Notifyトークンの設定がされていません')
-                exit()
+            # LINE Messaging APIのトークンを設定
+            if config.LINE_MESSAGING_API_TOKEN != '':
+                self.output.set_messaging_api_token(config.LINE_MESSAGING_API_TOKEN)
+            # ない場合はLINE Notifyのトークンを設定(~25/3まで)
+            elif config.LINE_NOTIFY_API_KEY != '':
+                self.output.set_notify_token(config.LINE_NOTIFY_API_KEY)
             else:
-                self.line_token = config.LINE_NOTIFY_API_KEY
-        except AttributeError:
-            self.log.error('config.pyにLINE Notifyトークン用の変数(LINE_NOTIFY_API_KEY)が定義されていません')
+                self.log.warning('config.pyにLINE Messaging APIあるいはNotifyのトークンが設定がされていません')
+                exit()
+        except AttributeError as e:
+            self.log.error('config.pyにLINE Notifyトークン用の変数(LINE_NOTIFY_API_KEY)かMessaging APIトークン用の変数(LINE_MESSAGING_API_TOKEN)が定義されていません')
+            self.log.error(str(e))
             exit()
 
         # 在庫数取得銘柄(=注文を行う銘柄ではない)を設定ファイルから取得する
