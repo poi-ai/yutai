@@ -437,8 +437,8 @@ class Steal(Main):
         elif (now.hour == 6 and now.minute >= 30) or now.hour == 7:
             self.log.info('在庫が補充されない時間帯(6:30~8:00)なので処理を終了します')
             return False
-        # 大引け直前から注文禁止時間(14:51~15:00)の場合は処理を停止する
-        elif now.hour == 14 and now.minute > 50:
+        # クロージング・オークションから大引け(15:25~15:30)の場合は処理を停止する
+        elif now.hour == 15 and (25 <= now.minute <= 30):
             self.log.info('取引終了時間直前のため監視/注文処理を終了します')
             return False
 
@@ -453,14 +453,14 @@ class Steal(Main):
             # 争奪戦用にリミッター解除
             self.limiter = False
 
-        # ~~17:00の取引再開ではセッションが切れないため、16:59まで待機→セッション接続(ログイン)→17:00:03まで待機とする~~
-        # 大引け後注文中断時間(15:00~16:58)なら16:59まで待つ
-        if now.hour == 15 or (now.hour == 16 and now.minute < 59):
-            target_time = datetime(now.year, now.month, now.day, 16, 59)
+        # ~~17:30の取引再開ではセッションが切れないため、17:29まで待機→セッション接続(ログイン)→17:30:03まで待機とする~~
+        # 大引け後注文中断時間(15:30~17:28)なら17:29まで待つ
+        if (now.hour == 15 and now.minute >= 30) or now.hour == 16 or (now.hour == 17 and now.minute < 29):
+            target_time = datetime(now.year, now.month, now.day, 17, 29)
 
-        # 16:59なら17:00:03まで待つ
-        elif now.hour == 16 and now.minute == 59:
-            target_time = datetime(now.year, now.month, now.day, 17, 0, 3)
+        # 17:29なら17:30:03まで待つ
+        elif now.hour == 17 and now.minute == 29:
+            target_time = datetime(now.year, now.month, now.day, 17, 30, 3)
             # 争奪戦用にリミッター解除
             self.limiter = False
 
@@ -477,8 +477,8 @@ class Steal(Main):
         ###   注文価格を切り換える時間帯のチェック  ###
         #############################################
 
-        # ザラ場直前から大引け直前(8:00~14:50)まではS高価格で注文を入れる ※それ以外の時間(ザラ場外)では成行で注文
-        if (8 <= now.hour <= 13) or (now.hour == 14 and now.minute <= 50):
+        # ザラ場直前から大引け直前(8:00~15:25)まではS高価格で注文を入れる ※それ以外の時間(ザラ場外)では成行で注文
+        if (8 <= now.hour <= 14) or (now.hour == 15 and now.minute <= 25):
             if self.zaraba == False:
                 self.log.info('ザラ場モードで実行します')
             self.zaraba = True
