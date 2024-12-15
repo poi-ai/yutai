@@ -313,15 +313,7 @@ class Main():
                 else:
                     notice_message += f'\n証券コード:{str(code)}の一般在庫情報はありません\n'
 
-        # 1000文字を超える場合は分割(念のため990文字ごとに)
-        notice_message_list = [notice_message[i:i + 990] for i in range(0, len(notice_message), 990)]
-
-        # 分割したものを一つずつ送信
-        for message in notice_message_list:
-            # LINEで送信
-            result, error_message = self.output.line(message)
-            if result == False:
-                self.log.error(error_message)
+        self.line_send(notice_message)
 
         self.log.info('auカブコム証券一般在庫データLINE送信処理終了')
 
@@ -489,15 +481,7 @@ class Main():
             if result == False:
                 self.log.error(error_message)
 
-        # 1000文字を超える場合は分割(念のため990文字ごとに)
-        notice_message_list = [message[i:i + 990] for i in range(0, len(message), 990)]
-
-        # 分割したものを一つずつ送信
-        for message in notice_message_list:
-            # LINEで送信
-            result, error_message = self.output.line(message)
-            if result == False:
-                self.log.error(error_message)
+        self.line_send(message)
 
         self.log.info('SMBC日興証券一般在庫LINE通知処理終了')
 
@@ -718,6 +702,50 @@ class Main():
                                       add_time = False,
                                       data_folder = False,
                                       mode = 'w')
+
+    def line_send(self, notice_message):
+        '''
+        LINEでメッセージ送信をする
+
+        Args:
+            notice_message(str): メッセージ内容
+        '''
+
+        # LINE Messaging APIを使う場合
+        if config.LINE_MESSAGING_API_TOKEN != '':
+            # 5000字を超える場合は分割(念のため4950字数ごと)
+            notice_message_list = [notice_message[i:i + 4950] for i in range(0, len(notice_message), 4950)]
+
+            # 1度のリクエストで5000文字x5吹き出しまで送信可能なので5吹き出しずつ送信する
+            fukidashi_list = []
+            for index, message in enumerate(notice_message_list):
+                fukidashi_list.append(message)
+
+                if index % 5 == 4:
+                    result, error_message = self.output.send_messaging_api(fukidashi_list)
+                    if result == False:
+                        self.log.error(error_message)
+                    fukidashi_list = []
+
+            # 余った部分を送信
+            if fukidashi_list != []:
+                result, error_message = self.output.send_messaging_api(fukidashi_list)
+                if result == False:
+                    self.log.error(error_message)
+
+        # LINE Notifyを使う場合
+        elif config.LINE_NOTIFY_API_KEY != '':
+            # 1000文字を超える場合は分割(念のため990文字ごとに)
+            notice_message_list = [notice_message[i:i + 990] for i in range(0, len(notice_message), 990)]
+
+            # 分割したものを一つずつ送信
+            for message in notice_message_list:
+                # LINEで送信
+                result, error_message = self.output.send_notify(message)
+                if result == False:
+                    self.log.error(error_message)
+        else:
+            self.log.error(f'LINE Messaging API、Notifyどちらのトークンも設定されていないためメッセージが送信できません\n送信メッセージ: {notice_message}')
 
     def test(self):
         '''テスト用コード'''

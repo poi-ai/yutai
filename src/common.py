@@ -166,13 +166,13 @@ class Output():
         else:
             return False, f'LINE Messaging API、Notifyどちらのトークンも設定されていないためメッセージが送信できません\n送信メッセージ: {message}'
 
-    def send_messaging_api(self, message):
+    def send_messaging_api(self, message_list):
         '''
         LINE Messaging APIのブロードキャストを用いてメッセージを送信する
         TODO いずれUUIDを用いたプッシュメッセージにしたい
 
         Args:
-            message(str) : LINE送信するメッセージ内容
+            message_list(lit[str, str...]) : LINE送信するメッセージ内容
 
         Returns:
             result(bool): 実行結果
@@ -186,14 +186,17 @@ class Output():
             'Authorization': f'Bearer {self.messaging_api_token}'
         }
 
+        # メッセージを吹き出しごとに設定
+        messages = []
+        for message in message_list:
+            messages.append({
+                'type': 'text',
+                'text': message
+            })
+
         # ペイロード
         data = {
-            'messages': [
-                {
-                    'type': 'text',
-                    'text': message
-                }
-            ]
+            'messages': messages
         }
 
         # メッセージ送信
