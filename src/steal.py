@@ -176,8 +176,8 @@ class Steal(Main):
 
                     # TODO 不明なエラーが続いた場合の処理も必要
 
-                # メンテナンス時間中のエラー
-                elif result == 3:
+                # メンテナンス時間中か取引時間外のエラー
+                elif result == 3 or result == 5:
                     now = datetime.now()
                     # ただしメンテナンスが明けているはずの時間の場合は再チェックする
                     if (now.hour in [5, 17] and now.minute <= 1) or (now.hour == 20 and 20 <= now.minute <= 21):
@@ -402,10 +402,14 @@ class Steal(Main):
 
         if order_price == None:
             self.log.info(f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: 成行')
-            self.output.line(f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: 成行')
+            result, error_message = self.output.line(f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: 成行')
+            if result == False:
+                self.log.error(error_message)
         else:
             self.log.info(f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: {order_price}円')
-            self.output.line(f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: {order_price}円')
+            result, error_message = self.output.line(f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: {order_price}円')
+            if result == False:
+                self.log.error(error_message)
 
         return 1
 
@@ -433,8 +437,9 @@ class Steal(Main):
         #elif 22 <= now.hour <= 24:
         #    self.log.info('在庫のほぼ出ない時間帯(22~24時)なので処理を終了します')
         #    return False
-        # 6:30~8:00まではシステム上在庫が補充されないため処理を終了させる
-        elif (now.hour == 6 and now.minute >= 30) or now.hour == 7:
+        # 6:30~7:55まではシステム上在庫が補充されないため処理を終了させる
+        # ※7:55~7:59も補充されないが、8:00取得のプログラムの動作を止めないようにする
+        elif (now.hour == 6 and now.minute >= 30) or (now.hour == 7 or now.minute <= 55):
             self.log.info('在庫が補充されない時間帯(6:30~8:00)なので処理を終了します')
             return False
         # クロージング・オークションから大引け(15:25~15:30)の場合は処理を停止する

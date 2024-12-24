@@ -130,7 +130,7 @@ class Output():
             token(str): LINE Notifyのアクセストークン
 
         '''
-        self.set_notify_token = token
+        self.notify_token = token
         return
 
     def set_messaging_api_token(self, token):
