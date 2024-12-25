@@ -220,10 +220,10 @@ class Steal(Main):
                                 # 過剰アクセスするとSMBCに怒られるので監視しとく
                                 self.excessive_access_count += 1
                                 if self.excessive_access_count == 1 or self.excessive_access_count == 5 or self.excessive_access_count >= 10:
-                                    self.output.line(f'steal.pyで過剰アクセスエラーが出ています {self.excessive_access_count}回目')
+                                    self.output.line([f'steal.pyで過剰アクセスエラーが出ています {self.excessive_access_count}回目'])
                                     if self.excessive_access_count >= 10:
                                         self.log.error(f'10回以上過剰アクセスエラーが出ているため処理を強制終了します')
-                                        self.output.line(f'10回以上過剰アクセスエラーが出ているため処理を強制終了します')
+                                        self.output.line([f'10回以上過剰アクセスエラーが出ているため処理を強制終了します'])
                                         exit()
 
 
@@ -238,10 +238,10 @@ class Steal(Main):
                     # 過剰アクセスするとSMBCに怒られるので監視しとく
                     self.excessive_access_count += 1
                     if self.excessive_access_count == 1 or self.excessive_access_count == 5 or self.excessive_access_count >= 10:
-                        self.output.line(f'steal.pyで過剰アクセスエラーが出ています {self.excessive_access_count}回目')
+                        self.output.line([f'steal.pyで過剰アクセスエラーが出ています {self.excessive_access_count}回目'])
                         if self.excessive_access_count >= 10:
                             self.log.error(f'10回以上過剰アクセスエラーが出ているため処理を強制終了します')
-                            self.output.line(f'10回以上過剰アクセスエラーが出ているため処理を強制終了します')
+                            self.output.line([f'10回以上過剰アクセスエラーが出ているため処理を強制終了します'])
                             exit()
                     time.sleep(0.2)
 
@@ -402,12 +402,12 @@ class Steal(Main):
 
         if order_price == None:
             self.log.info(f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: 成行')
-            result, error_message = self.output.line(f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: 成行')
+            result, error_message = self.output.line([f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: 成行'])
             if result == False:
                 self.log.error(error_message)
         else:
             self.log.info(f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: {order_price}円')
-            result, error_message = self.output.line(f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: {order_price}円')
+            result, error_message = self.output.line([f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: {order_price}円'])
             if result == False:
                 self.log.error(error_message)
 
@@ -439,7 +439,7 @@ class Steal(Main):
         #    return False
         # 6:30~7:55まではシステム上在庫が補充されないため処理を終了させる
         # ※7:55~7:59も補充されないが、8:00取得のプログラムの動作を止めないようにする
-        elif (now.hour == 6 and now.minute >= 30) or (now.hour == 7 or now.minute <= 55):
+        elif (now.hour == 6 and now.minute >= 30) or (now.hour == 7 and now.minute <= 55):
             self.log.info('在庫が補充されない時間帯(6:30~8:00)なので処理を終了します')
             return False
         # クロージング・オークションから大引け(15:25~15:30)の場合は処理を停止する
@@ -558,7 +558,8 @@ class Steal(Main):
                 return datetime.fromtimestamp(response.tx_time)
             except Exception as e:
                 self.log.error(f'NTPサーバーからの時刻取得処理に失敗しました サーバー: {server}\n{e}')
-                raise # TODO ここの対応どうするか考える 今は一旦エラーとして落とす
+                # どっちのサーバーとも取得失敗した場合は標準ライブラリから取得を行う
+                return datetime.now()
 
     def get_sdaka(self, stock_code, date):
         '''

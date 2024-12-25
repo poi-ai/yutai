@@ -172,7 +172,7 @@ class Output():
         TODO いずれUUIDを用いたプッシュメッセージにしたい
 
         Args:
-            message_list(lit[str, str...]) : LINE送信するメッセージ内容
+            message_list(list[str, str...]) : LINE送信するメッセージ内容
 
         Returns:
             result(bool): 実行結果
