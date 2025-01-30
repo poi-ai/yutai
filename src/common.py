@@ -843,3 +843,34 @@ class Culc():
             return True
 
         return False
+
+    def exchange_time(self, now):
+        '''
+        指定した時間から取引時間の種別を判定する
+
+        Args:
+            now(datetime): 判定対象の時間 省略可
+
+        Returns:
+            time_type(int): 時間種別
+                1: 前場取引時間、2: 後場取引時間(クロージング・オークション除く)、
+                3: 取引時間外(寄り付き前)、4: 取引時間外(お昼休み)、5: 取引時間外(大引け後)、6: クロージング・オークション
+        '''
+        # 前場
+        if 9 <= now.hour < 11 or (now.hour == 11 and now.minute < 30):
+            return 1
+        # クロージング・オークション
+        elif 15 == now.hour and (25 <= now.minute < 30):
+            return 6
+        # 後場
+        elif 12 < now.hour < 15 or (now.hour == 12 and now.minute >= 30) or (now.hour == 15 and now.minute < 25):
+            return 2
+        # 寄り前
+        elif now.hour < 9:
+            return 3
+        # 引け後
+        elif now.hour >= 15:
+            return 5
+        # お昼休み
+        else:
+            return 4
