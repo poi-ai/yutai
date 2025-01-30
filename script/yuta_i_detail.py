@@ -15,6 +15,9 @@ except IndexError:
 r = requests.get(f'https://minkabu.jp/stock/{stock_code}/yutai')
 soup = BeautifulSoup(r.content, 'lxml')
 try:
+    print()
+    print()
+    print(f'☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆{stock_code}☆☆')
     print(soup.find('div', class_='md_card md_box ly_content_wrapper size_ss').text.replace('\n\n', '\n').rstrip("\n"))
 except AttributeError as e:
     print('指定された証券コードの銘柄の優待は存在しません')

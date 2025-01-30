@@ -34,7 +34,16 @@ FIRST_TARGET_STOCK_CODE_LIST = []
 SECOND_TARGET_STOCK_CODE_LIST = []
 THIRD_TARGET_STOCK_CODE_LIST = []
 
+### CSVファイル名
+CSV_NAME = '8month'
+
 ### LINE通知 ###
 
 # LINE NotifyのAPIキー
 LINE_NOTIFY_API_KEY = ''
+
+# LINE Messaging APIのアクセストークン(長期)
+LINE_MESSAGING_API_TOKEN = ''
+
+# スローで処理するか(権利確定日までまだ期間があるなどの場合にアクセス頻度を抑えるか、bool)
+SLOW_PROCESS = True

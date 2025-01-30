@@ -1,4 +1,5 @@
 import config
+import requests
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 
@@ -13,20 +14,23 @@ class Order():
         '''
         self.log = log
 
-    def confirm(self, session, stock_code, num):
+    def confirm(self, session, stock_code, num, order_price):
         '''
         一般信用売り注文確認画面へリクエストを送る
 
         Args:
             session(requests.sessions.Session): ログイン状態のセッション
             stock_code(str): 対象銘柄
-            num(int): 発注数量
+            num(int): 注文数量
+            order_price(float or int): 注文価格 ※成行の場合はNone
 
         Returns:
             result(bool): 実行結果
             soup(bs4.BeautifulSoup): レスポンスのHTML
 
         '''
+
+        # 共通注文条件
         post_info = {
             'odrJoken': '1',               # 1: 通常注文、2: 逆指値注文
             'execCnd': '0',
@@ -42,11 +46,8 @@ class Order():
             'sijyoKbn': '1',
             'sinyoToriKbn': '1',           # 0: 制度、1: 信用
             'suryo': num,                  # 株数
-            #'kakaku': '',                 # 指値注文価格
-            'nariSasiKbn': '2',            # 1: 指値、2: 成行
             #'cnd11': '2',                 # 寄り成り
             #'cnd12': '3',                 # 引け成り
-            'cnd17': '0',                  # 条件なし成行
             'yukokikan': '1',              # 1: 当日中、9: 期間指定
             'yukokigenDate': '',           # 注文有効期間
             'kozaKbnSinyo': '1',           # 0: 一般口座、1: 特定口座
@@ -55,10 +56,40 @@ class Order():
             'execUrl.y': '18'              # 押下したボタンのy軸
         }
 
+        # 取引時間外の成行注文の場合
+        if order_price == None:
+            post_info['nariSasiKbn'] =  '2'     # 1: 指値、2: 成行
+            post_info['cnd17'] = '0'            # 条件なし成行
+
+        # 取引時間中の指値の場合
+        else:
+            post_info['nariSasiKbn'] =  '1'     # 1: 指値、2: 成行
+            post_info['cnd17'] = '0'            # 条件なし指値
+            post_info['kakaku'] = str(order_price)   # 指値注文価格
+
+        # タイムアウト時間を設定
+        # 5時のメンテ明けの場合はセッションが切れるため、早めに接続アウトとする
+        now = datetime.now()
+        if now.hour == 5 and now.minute < 2:
+            connect_timeout, read_time_out = 0.5, 1 # 接続タイムアウト0.5秒、HTML読み込みタイムアウトは1秒 TODO ここシビア。readは緩和するかも
+        else:
+            connect_timeout, read_time_out = 1, 2 # 接続タイムアウト1秒、HTML読み込みタイムアウトは2秒
+
+        # User-agent指定
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
+        }
+
         try:
-            r = session.post('https://trade.smbcnikko.co.jp/OdrMng/000000000000/sinyo/tku_odr/siji', data = post_info)
-        except:
-            self.log.error('接続に失敗')
+            r = session.post(url = 'https://trade.smbcnikko.co.jp/OdrMng/000000000000/sinyo/tku_odr/siji',
+                             data = post_info,
+                             headers = headers,
+                             timeout = (connect_timeout, read_time_out))
+        except requests.exceptions.ConnectTimeout as e:
+            self.log.error(f'タイムアウトエラー\n{e}')
+            return False, 1
+        except Exception as e:
+            self.log.error(f'接続に失敗\n{e}')
             return False, None
 
         if r.status_code != 200:
@@ -74,7 +105,7 @@ class Order():
 
         return True, soup
 
-    def order(self, session, stock_code, num, token_id, url_id):
+    def order(self, session, stock_code, num, token_id, url_id, order_date, order_price):
         '''
         一般信用売り注文リクエストを送る
 
@@ -84,12 +115,15 @@ class Order():
             num(int): 発注数量
             token_id(str): トークンID(注文確認画面で発行)
             url_id(str): URL ID(注文確認画面で発行)
+            order_date(str): 注文日(yyyymmdd形式)
+            order_price(float or int): 注文価格 ※成行の場合はNone
 
         Returns:
             result(bool): 実行結果
             soup(bs4.BeautifulSoup): レスポンスのHTML
 
         '''
+        # 共通注文条件
         post_info = {
             'specifyMeig': '1',
             'sinkbShitei': '0',
@@ -97,10 +131,8 @@ class Order():
             'bbaiKbn': '1',
             'sijyoKbn': '1',
             'execCnd': '0',
-            'nariSasiKbn': '2',
-            'kakaku': '',
             'suryo': num,
-            'odrExecYmd': self.next_weekday(),         # 注文日
+            'odrExecYmd': order_date,                  # 注文日
             'expcheck': '0',
             'yukoSiteDate': '1',
             'yukokigenDate': '',                       # 注文有効期間
@@ -138,8 +170,29 @@ class Order():
             'nyuKeroKbn2': 'pcw00'
         }
 
+        # User-agent指定
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
+        }
+
+        # 取引時間外の成行注文の場合
+        if order_price == None:
+            post_info['nariSasiKbn'] =  '2'     # 1: 指値、2: 成行
+            post_info['kakaku'] =  ''
+
+        # 取引時間中の指値の場合
+        else:
+            post_info['nariSasiKbn'] =  '1'     # 1: 指値、2: 成行
+            post_info['kakaku'] = str(order_price)
+
         try:
-            r = session.post(f'https://trade.smbcnikko.co.jp/OdrMng/{url_id}/sinyo/tku_odr/exec', data = post_info)
+            r = session.post(f'https://trade.smbcnikko.co.jp/OdrMng/{url_id}/sinyo/tku_odr/exec',
+                             data = post_info,
+                             headers = headers,
+                             timeout = (10, 10)) # 接続タイムアウト10秒
+        except requests.exceptions.ConnectTimeout as e:
+            self.log.error(f'タイムアウトエラー\n{e}')
+            return False, 1
         except:
             self.log.error('接続に失敗')
             return False, None
