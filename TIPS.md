@@ -1,5 +1,24 @@
 ## Tips
 
+### 使い方
+
+#### auカブコム証券で特定の銘柄の一般在庫をLINEに通知する
+1. src/config.pyの下記定数に値を設定する
+
+|定数名|値|データ型|
+|----|----|----|
+|KABUCOM_ACCOUNT_NUMBER|auカブコム証券の口座番号|str|
+|KABUCOM_PASSWORD|auカブコムの証券パスワード|str|
+|FIRST_TARGET_STOCK_CODE_LIST|取得したい銘柄のコード(LINE1通目)|list[int, int,...]|
+|SECOND_TARGET_STOCK_CODE_LIST|取得したい銘柄のコード(LINE2通目)|list[int, int,...]|
+|THIRD_TARGET_STOCK_CODE_LIST|取得したい銘柄のコード(LINE3通目)|list[int, int,...]|
+
+2. 下記コマンドを実行する(定期実行の場合はcronに設定する)
+```
+cd src
+python main.py kabucom notice
+```
+
 ### 一般信用に関する各証券会社ごとの情報
 
 #### 一般信用の申込情報

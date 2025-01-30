@@ -1,10 +1,12 @@
+### 証券会社へのID/PASSWORD ###
+
 # SBI
 SBI_USER_NAME = ''
 SBI_LOGIN_PASSWORD = ''
 SBI_TRADE_PASSWORD = ''
 
 # auカブコム
-KABUCOM_ACCOUNT_NUMBER_ = ''
+KABUCOM_ACCOUNT_NUMBER = ''
 KABUCOM_PASSWORD = ''
 
 # 楽天
@@ -22,3 +24,26 @@ SMBC_BRANCH_CODE = ''
 SMBC_ACCOUNT_NUMBER = ''
 SMBC_LOGIN_PASSWORD = ''
 SMBC_TRADE_PASSWORD = ''
+
+
+### 取得対象 ###
+
+# 取得対象の銘柄コードのリスト
+# strかintで列挙、別グループとして分けたかっただけで、どこに値を入れてもよい(何通目に来るかの違い)
+FIRST_TARGET_STOCK_CODE_LIST = []
+SECOND_TARGET_STOCK_CODE_LIST = []
+THIRD_TARGET_STOCK_CODE_LIST = []
+
+### CSVファイル名
+CSV_NAME = '8month'
+
+### LINE通知 ###
+
+# LINE NotifyのAPIキー
+LINE_NOTIFY_API_KEY = ''
+
+# LINE Messaging APIのアクセストークン(長期)
+LINE_MESSAGING_API_TOKEN = ''
+
+# スローで処理するか(権利確定日までまだ期間があるなどの場合にアクセス頻度を抑えるか、bool)
+SLOW_PROCESS = True
