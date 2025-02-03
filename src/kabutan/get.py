@@ -2,6 +2,7 @@ import re
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
+import traceback
 
 class Get():
     '''株探から株価データを取得する'''
@@ -40,18 +41,18 @@ class Get():
                 owarine = -1
                 for table in owarine_table:
                     # 終値の記載チェック
-                    if '終値' in table.text:
-                        owarine = table.find_all('tr')[3].find_all('td')[1].text
+                    if '<th scope="row">終値</th>' in str(table):
+                        owarine = table.find_all('tr')[3].find_all('td')[0].text.strip()
                         break
 
                 now = datetime.now()
                 # 記載されている終値がいつのものかを現在の時間から判定
                 # 非営業日か大引け後は今日の日付を設定(値幅計算対象が翌営業日になる)
                 if time_type in [0, 5]:
-                    owarine_info = [owarine, now.strftime('%Y/%m/%d')]
+                    owarine_info = [owarine, now.strftime('%m/%d')]
                 # 営業日の寄り付き前は前日の日付を設定(値幅計算対象が今日になる)
                 else:
-                    owarine_info = [owarine, (now - timedelta(days = 1).strftime('%Y/%m/%d'))]
+                    owarine_info = [owarine, (now - timedelta(days = 1)).strftime('%m/%d')]
         except Exception as e:
             return False, e
 
