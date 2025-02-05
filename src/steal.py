@@ -42,7 +42,6 @@ class Steal(Main):
             self.log.info('同一プロセスが起動しているため処理を終わります')
             self.multi_process = True
             exit()
-        self.create_steal_file()
 
     def __del__(self):
         # 多重プロセス起動以外の場合のみ使用したファイルを削除する
@@ -602,7 +601,7 @@ class Steal(Main):
                 result = subprocess.run(
                     ["ps", "aux"], text=True, capture_output=True, check=True
                 )
-                count = sum(1 for line in result.stdout.splitlines() if f'python steal.py' in line)
+                count = sum(1 for line in result.stdout.splitlines() if f'python3 steal.py' in line)
 
                 # この実行処理も引っかかるので、2つ以上あれば二重起動とみなす
                 if count >= 2:
@@ -615,6 +614,10 @@ class Steal(Main):
             except Exception as e:
                 self.log.error('プロセスチェック処理でエラー')
                 return True
+        # ロックファイルがない場合
+        else:
+            self.create_steal_file()
+            return False
 
     def delete_steal_file(self):
         '''プロセス使用中のファイルを削除する'''
