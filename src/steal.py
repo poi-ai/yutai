@@ -4,6 +4,7 @@ import ntplib
 import os
 import time
 import re
+import subprocess
 import sys
 import holiday
 from main import Main
@@ -595,7 +596,25 @@ class Steal(Main):
     def check_steal_file_exists(self):
         '''他に起動しているプロセスがあるかチェックする'''
         file_path = '../tmp/steal'
-        return os.path.exists(file_path)
+        # ロックファイルのチェック
+        if os.path.exists(file_path):
+            try:
+                result = subprocess.run(
+                    ["ps", "aux"], text=True, capture_output=True, check=True
+                )
+                count = sum(1 for line in result.stdout.splitlines() if f'python steal.py' in line)
+
+                # この実行処理も引っかかるので、2つ以上あれば二重起動とみなす
+                if count >= 2:
+                    return True
+                # プロセスがないのにロックファイルが残っているのはおかしいのでFalseを返し処理を継続させる
+                # 削除はデストラクタで削除されるためここでは消さない
+                else:
+                    self.log.warning('他プロセスで動いてはいませんがロックファイルが残っています')
+                    return False
+            except Exception as e:
+                self.log.error('プロセスチェック処理でエラー')
+                return True
 
     def delete_steal_file(self):
         '''プロセス使用中のファイルを削除する'''
