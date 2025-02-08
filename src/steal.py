@@ -114,8 +114,19 @@ class Steal(Main):
         # リミッター制御用カウンター
         counter = 0
 
+        # エラー制御用
+        error_check_time = datetime.now()
+
         # 在庫チェック/注文処理
         while True:
+            # 10回アクセスエラーが出ると処理を終了するが間を空いたエラーなら止めないようにする
+            check_now_time = datetime.now()
+            if check_now_time != error_check_time:
+                # 10分ごとにエラーカウントを1減らす
+                if check_now_time.minute % 10 == 0:
+                    self.excessive_access_count = max(0, self.excessive_access_count - 1)
+                    error_check_time = check_now_time
+
             # 単一銘柄狙い撃ちの場合、リミッターがかかったら(50アクセスしたら)処理終了
             if self.uni_flag and self.limiter:
                 self.log.info('単一銘柄狙い撃ち処理を終了します')
@@ -296,6 +307,10 @@ class Steal(Main):
             if soup == 1:
                 return 4
             return 2
+
+        if result == None:
+            self.line_send('steal.pyで異常な頻度のアクセスを検知したため強制終了します')
+            exit()
 
         soup_text = soup.text
 
