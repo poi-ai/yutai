@@ -699,7 +699,8 @@ class Main():
                 continue
 
             if zaiko != None:
-                if zaiko > 0:
+                # 在庫があり、steal_listの在庫数以上の場合
+                if zaiko > 0 and int(zaiko) >= int(steal[1]):
                     #steal[4] = 1
                     zaiko_exist_list.append(steal)
                 else:
