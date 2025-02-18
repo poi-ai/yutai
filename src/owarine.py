@@ -30,9 +30,6 @@ class Owarine(Main):
         ### 営業日 15:30 ~      : 前営業日の終値欄 → x(前営業日の終値)  、四本値の終値 → o(当日の終値) time_type = 5
         ### 非営業日            : 前営業日の終値欄 → x(前々営業日の終値)、四本値の終値 → o(前営業日の終値) time_type = 0
 
-        # どこの枠からとるか 1: 前営業日の終値欄 2: 四本値の終値
-        get_area = 2
-
         # 営業日チェック
         now = datetime.now()
         if self.culc.is_exchange_workday(now):
@@ -50,7 +47,7 @@ class Owarine(Main):
                 continue
 
             # 次営業日のS高の価格を計算
-            upper_price = self.culc.culc_upper_price(stock_code, float(owarine_info[0]))
+            upper_price = self.culc.culc_upper_price(stock_code, float(owarine_info[0].replace(',', '')))
 
             # CSVへ出力
             result, error_message = self.output.owarine_csv(str(stock_code), upper_price, owarine_info)
