@@ -349,6 +349,11 @@ class Steal(Main):
             self.log.warning('過剰アクセスのため注文できません')
             return 6
 
+        # 仮想売買チェックエラー
+        if 'NOL77178E' in soup_text:
+            self.log.warning('既に信用買注文が入っているため注文できません')
+            return 1
+
         # 注文用のトークンID/URL IDの取得
         try:
             token_id = soup.find('input', {'name': 'tokenId'}).get('value')
@@ -403,6 +408,11 @@ class Steal(Main):
         if 'NOL75401E' in soup_text or 'NOL75400E' in soup_text:
             self.log.info('一般信用在庫が足りないため注文できません(注文確認画面)')
             return 4
+
+        # 仮想売買チェックエラー
+        if 'NOL77178E' in soup_text:
+            self.log.warning('既に信用買注文が入っているため注文できません')
+            return 1
 
         # 注文完了チェック
         if not '売り注文を受付ました' in soup_text:
