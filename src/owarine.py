@@ -40,20 +40,29 @@ class Owarine(Main):
         self.log.info(f'取得対象銘柄数: {len(steal_list)}')
 
         for stock_code in steal_list:
-            # 株探から終値を取得
-            result, owarine_info = self.kabutan.get.get_closing_price(stock_code, time_type)
-            if result == False:
-                self.log.error(f'終値取得処理でエラー\n{owarine_info}')
-                continue
+            try:
+                # 株探から終値を取得
+                self.log.info(f'終値取得/出力開始 証券コード: {stock_code}')
+                result, owarine_info = self.kabutan.get.get_closing_price(stock_code, time_type)
+                if result == False:
+                    self.log.error(f'終値取得処理でエラー\n{owarine_info}')
+                    continue
 
-            # 次営業日のS高の価格を計算
-            upper_price = self.culc.culc_upper_price(stock_code, float(owarine_info[0].replace(',', '')))
+                # 次営業日のS高の価格を計算
+                owarine = float(owarine_info[0].replace(',', ''))
+                upper_price = self.culc.culc_upper_price(stock_code, owarine)
 
-            # CSVへ出力
-            result, error_message = self.output.owarine_csv(str(stock_code), upper_price, owarine_info)
-            if result == False:
-                self.log.error(f'終値出力処理でエラー\n{error_message}')
-                continue
+                self.log.info(f'前日終値: {owarine}、翌S高価格: {upper_price}')
+
+                # CSVへ出力
+                result, error_message = self.output.owarine_csv(str(stock_code), upper_price, owarine_info)
+                if result == False:
+                    self.log.error(f'終値出力処理でエラー\n{error_message}')
+
+
+                self.log.info(f'終値取得/出力終了 証券コード: {stock_code}')
+            except Exception as e:
+                self.log.error(f'終値取得/出力処理で想定外のエラー\n{e}')
 
             time.sleep(3)
 
