@@ -4,6 +4,7 @@ import ntplib
 import os
 import time
 import re
+import subprocess
 import sys
 import holiday
 from main import Main
@@ -41,7 +42,6 @@ class Steal(Main):
             self.log.info('同一プロセスが起動しているため処理を終わります')
             self.multi_process = True
             exit()
-        self.create_steal_file()
 
     def __del__(self):
         # 多重プロセス起動以外の場合のみ使用したファイルを削除する
@@ -114,8 +114,19 @@ class Steal(Main):
         # リミッター制御用カウンター
         counter = 0
 
+        # エラー制御用
+        error_check_time = datetime.now()
+
         # 在庫チェック/注文処理
         while True:
+            # 10回アクセスエラーが出ると処理を終了するが間を空いたエラーなら止めないようにする
+            check_now_time = datetime.now()
+            if check_now_time != error_check_time:
+                # 10分ごとにエラーカウントを1減らす
+                if check_now_time.minute % 10 == 0:
+                    self.excessive_access_count = max(0, self.excessive_access_count - 1)
+                    error_check_time = check_now_time
+
             # 単一銘柄狙い撃ちの場合、リミッターがかかったら(50アクセスしたら)処理終了
             if self.uni_flag and self.limiter:
                 self.log.info('単一銘柄狙い撃ち処理を終了します')
@@ -297,6 +308,10 @@ class Steal(Main):
                 return 4
             return 2
 
+        if result == None:
+            self.line_send('steal.pyで異常な頻度のアクセスを検知したため強制終了します')
+            exit()
+
         soup_text = soup.text
 
         # 余力チェック
@@ -333,6 +348,11 @@ class Steal(Main):
         if 'NOL76980E' in soup_text:
             self.log.warning('過剰アクセスのため注文できません')
             return 6
+
+        # 仮想売買チェックエラー
+        if 'NOL77178E' in soup_text:
+            self.log.warning('既に信用買注文が入っているため注文できません')
+            return 1
 
         # 注文用のトークンID/URL IDの取得
         try:
@@ -388,6 +408,11 @@ class Steal(Main):
         if 'NOL75401E' in soup_text or 'NOL75400E' in soup_text:
             self.log.info('一般信用在庫が足りないため注文できません(注文確認画面)')
             return 4
+
+        # 仮想売買チェックエラー
+        if 'NOL77178E' in soup_text:
+            self.log.warning('既に信用買注文が入っているため注文できません')
+            return 1
 
         # 注文完了チェック
         if not '売り注文を受付ました' in soup_text:
@@ -595,7 +620,29 @@ class Steal(Main):
     def check_steal_file_exists(self):
         '''他に起動しているプロセスがあるかチェックする'''
         file_path = '../tmp/steal'
-        return os.path.exists(file_path)
+        # ロックファイルのチェック
+        if os.path.exists(file_path):
+            try:
+                result = subprocess.run(
+                    ["ps", "aux"], text=True, capture_output=True, check=True
+                )
+                count = sum(1 for line in result.stdout.splitlines() if f'python3 steal.py' in line)
+
+                # この実行処理も引っかかるので、2つ以上あれば二重起動とみなす
+                if count >= 2:
+                    return True
+                # プロセスがないのにロックファイルが残っているのはおかしいのでFalseを返し処理を継続させる
+                # 削除はデストラクタで削除されるためここでは消さない
+                else:
+                    self.log.warning('他プロセスで動いてはいませんがロックファイルが残っています')
+                    return False
+            except Exception as e:
+                self.log.error('プロセスチェック処理でエラー')
+                return True
+        # ロックファイルがない場合
+        else:
+            self.create_steal_file()
+            return False
 
     def delete_steal_file(self):
         '''プロセス使用中のファイルを削除する'''

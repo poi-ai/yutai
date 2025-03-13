@@ -6,6 +6,7 @@ import numpy as np
 import os
 import pandas as pd
 import sys
+import topix
 import re
 import requests
 from datetime import datetime, timedelta
@@ -500,16 +501,19 @@ class Log():
         return os.path.basename(stack[1].filename), stack[1].lineno
 
 class Culc():
-    def culc_upper_price(self, price):
+    def culc_upper_price(self, stock_code, price):
         '''
         指定した株価から翌営業日の高値を返す
 
         Args:
+            stock_code(str): 証券コード
             price(float): 前営業日の終値
 
         Returns:
             upper_price(float): 翌営業日の高値
         '''
+
+        # 現在値と値幅
         thresholds = [
             (100, 30),
             (200, 50),
@@ -536,8 +540,8 @@ class Culc():
             (1000000, 150000)
         ]
 
+        # 小さい順に辿っていき、値幅を取得する
         add_price = 0
-
         for threshold, limit_width in thresholds:
             if price < threshold:
                 add_price = limit_width
@@ -545,11 +549,109 @@ class Culc():
         else:
             add_price = thresholds[-1][1]
 
+        # 価格(終値)に値幅を加算
         upper_price = price + add_price
 
-        if upper_price.is_integer():
-            return int(upper_price)
-        return upper_price
+        # 呼値次第では正しくない値が入る場合があるので修正が必要
+        # 例: 999円+50円(値幅)=1049円ではダメで呼値が5円なので1045円でないといけない
+
+        # 銘柄種別チェック
+        topix_flag = str(stock_code) in topix.TOPIX_500
+
+        # 注文可能な価格の中で、値幅加算額と同じか満たない中での最高値の取得
+        correct_price = self.check_correct_price(price, upper_price, topix_flag)
+
+        # int変換可能なら変換
+        if isinstance(correct_price, float) and correct_price.is_integer():
+            return int(correct_price)
+        return correct_price
+
+    def check_correct_price(self, low_price, check_price, topix_flag):
+        '''
+        指定した銘柄の株価が注文可能な価格かチェックする
+
+        Args:
+            low_price(float): チェック対象の株価より低い株価で注文可能な価格
+            check_price(float): チェック対象の株価
+            topix_flag(bool): TOPIX 500構成銘柄か
+
+        Returns:
+            result(bool): 実行結果
+            error_message(str): エラーメッセージ
+        '''
+
+        price_list = [low_price]
+        now_price = low_price
+
+        while True:
+            # 基準価格の呼値を取得
+            yobine = self.get_price_range(topix_flag, now_price)
+
+            # 基準価格 + 呼値を計算してリストに挿入
+            next_price = now_price + yobine
+
+            # 丸め誤差修正
+            next_price = self.polish_price(next_price)
+
+            # 超えた場合は1つ前の正しい値を返す
+            if next_price > check_price:
+                return price_list[-1]
+            elif next_price == check_price:
+                return next_price
+            else:
+                price_list.append(next_price)
+                now_price = next_price
+
+    def get_price_range(self, topix_flag, price):
+        '''
+        指定した銘柄の呼値を取得する
+
+        Args:
+            topix_flag(bool): TOPIX 500構成銘柄か
+            price(float): 判定したい株価
+
+            price_range(float) or False: 呼値
+        '''
+
+        price_ranges = {
+            True: [
+                (1000, 0.1), (3000, 0.5), (10000, 1), (30000, 5), (100000, 10),
+                (300000, 50), (1000000, 100), (3000000, 500), (10000000, 1000),
+                (30000000, 5000), (float('inf'), 10000)
+            ],
+            False: [
+                (3000, 1), (5000, 5), (30000, 10), (50000, 50), (300000, 100),
+                (500000, 500), (3000000, 1000), (5000000, 5000), (30000000, 10000),
+                (50000000, 50000), (float('inf'), 100000)
+            ]
+        }
+
+        for limit, range_value in price_ranges[topix_flag]:
+            if price + 0.1 <= limit:
+                return range_value
+
+        return False
+
+    def polish_price(self, price):
+        '''
+        価格計算結果の丸め誤差を修正する
+
+        Args:
+            price(int or float): 修正対象の株価
+
+        Return:
+            accurate_price(int or float): 正確な株価
+        '''
+        # 丸め誤差修正
+        accurate_price = round(price, 1)
+
+        # データ型修正
+        # int変換可能な値の場合は変換する
+        if isinstance(accurate_price, float) and accurate_price.is_integer():
+            accurate_price = int(accurate_price)
+
+        return accurate_price
+
 
     def next_exchange_workday(self, date):
         '''
@@ -675,29 +777,6 @@ class Culc():
             holiday_list(list): 祝日のリスト
         '''
         return 2030, {
-            '20240101','元日',
-            '20240108','成人の日',
-            '20240211','建国記念の日',
-            '20240212','振替休日',
-            '20240223','天皇誕生日',
-            '20240320','春分の日',
-            '20240429','昭和の日',
-            '20240503','憲法記念日',
-            '20240504','みどりの日',
-            '20240505','こどもの日',
-            '20240506','振替休日',
-            '20240715','海の日',
-            '20240811','山の日',
-            '20240812','振替休日',
-            '20240916','敬老の日',
-            '20240922','秋分の日',
-            '20240923','振替休日',
-            '20241014','スポーツの日',
-            '20241103','文化の日',
-            '20241104','振替休日',
-            '20241123','勤労感謝の日',
-            '20250101','元日',
-            '20250113','成人の日',
             '20250211','建国記念の日',
             '20250223','天皇誕生日',
             '20250224','振替休日',
@@ -820,6 +899,7 @@ class Culc():
             return False, e
 
         if r.status_code != 200:
+            # TODO インスタンス変数logが存在しないからエラー出る
             self.log.error(f'祝日情報取得APIエラー ステータスコード: {r.status_code}')
             return False, f'{r.status_code}\n{r.status_code}\n{json.loads(r.content)}'
 
@@ -843,3 +923,34 @@ class Culc():
             return True
 
         return False
+
+    def exchange_time(self, now):
+        '''
+        指定した時間から取引時間の種別を判定する
+
+        Args:
+            now(datetime): 判定対象の時間 省略可
+
+        Returns:
+            time_type(int): 時間種別
+                1: 前場取引時間、2: 後場取引時間(クロージング・オークション除く)、
+                3: 取引時間外(寄り付き前)、4: 取引時間外(お昼休み)、5: 取引時間外(大引け後)、6: クロージング・オークション
+        '''
+        # 前場
+        if 9 <= now.hour < 11 or (now.hour == 11 and now.minute < 30):
+            return 1
+        # クロージング・オークション
+        elif 15 == now.hour and (25 <= now.minute < 30):
+            return 6
+        # 後場
+        elif 12 < now.hour < 15 or (now.hour == 12 and now.minute >= 30) or (now.hour == 15 and now.minute < 25):
+            return 2
+        # 寄り前
+        elif now.hour < 9:
+            return 3
+        # 引け後
+        elif now.hour >= 15:
+            return 5
+        # お昼休み
+        else:
+            return 4

@@ -13,6 +13,8 @@ class Order():
 
         '''
         self.log = log
+        # アクセス頻度の管理用
+        self.access_manager = {'counter': 0, 'time': datetime.now()}
 
     def confirm(self, session, stock_code, num, order_price):
         '''
@@ -74,6 +76,17 @@ class Order():
             connect_timeout, read_time_out = 0.5, 1 # 接続タイムアウト0.5秒、HTML読み込みタイムアウトは1秒 TODO ここシビア。readは緩和するかも
         else:
             connect_timeout, read_time_out = 1, 2 # 接続タイムアウト1秒、HTML読み込みタイムアウトは2秒
+
+        # バグで過剰アクセスにならないようにアクセス間隔を調整
+        self.access_manager['counter'] += 1
+        # 300回/5分 以上の場合はバグとみなして強制終了
+        if self.access_manager['counter'] > 300:
+            self.log.error('売り注文確認画面への過剰アクセスのため強制終了')
+            return None, None
+        # 5分以上経過した場合はカウンタをリセット
+        if (datetime.now() - self.access_manager['time']).seconds > 300:
+            self.access_manager['counter'] = 0
+            self.access_manager['time'] = datetime.now()
 
         # User-agent指定
         headers = {

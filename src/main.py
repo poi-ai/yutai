@@ -83,19 +83,38 @@ class Main():
                 # 一般在庫データの成型
                 mold_data, data_type = self.kabucom_mold_csv(csv_data)
 
+                # 取得対象リストの結合
+                all_codes = [str(code) for code in config.FIRST_TARGET_STOCK_CODE_LIST] +\
+                            [str(code) for code in config.SECOND_TARGET_STOCK_CODE_LIST] +\
+                            [str(code) for code in config.THIRD_TARGET_STOCK_CODE_LIST]
+
                 # CSVファイルに出力
                 for stock in mold_data:
                     # 抽選受付中(19:30~20:30)の場合
                     if data_type == 'lottery':
-                        result, error_message = self.output.zaiko_csv(company = 'kabucom',
+                        result, error_message = self.output.zaiko_csv(company = 'kabucom_all',
                                                                       stock_code = stock['stock_code'],
                                                                       stock_num = f"{stock['order_num']}/{stock['stock_num']}",
                                                                       csv_name = config.CSV_NAME)
+
+                        # 通知対象の銘柄コードのリストに含まれている場合
+                        if str(stock['stock_code']) in all_codes:
+                            result, error_message = self.output.zaiko_csv(company = 'kabucom',
+                                                                          stock_code = stock['stock_code'],
+                                                                          stock_num = f"{stock['order_num']}/{stock['stock_num']}",
+                                                                          csv_name = config.CSV_NAME)
                     else:
-                        result, error_message = self.output.zaiko_csv(company = 'kabucom',
+                        result, error_message = self.output.zaiko_csv(company = 'kabucom_all',
                                                                       stock_code = stock['stock_code'],
                                                                       stock_num = stock['stock_num'],
                                                                       csv_name = config.CSV_NAME)
+
+                        # 通知対象の銘柄コードのリストに含まれている場合
+                        if str(stock['stock_code']) in all_codes:
+                            result, error_message = self.output.zaiko_csv(company = 'kabucom',
+                                                                          stock_code = stock['stock_code'],
+                                                                          stock_num = stock['stock_num'],
+                                                                          csv_name = config.CSV_NAME)
 
                     if result == False:
                         self.log.error(error_message)
@@ -680,7 +699,8 @@ class Main():
                 continue
 
             if zaiko != None:
-                if zaiko > 0:
+                # 在庫があり、steal_listの在庫数以上の場合
+                if zaiko > 0 and int(zaiko) >= int(steal[1]):
                     #steal[4] = 1
                     zaiko_exist_list.append(steal)
                 else:
