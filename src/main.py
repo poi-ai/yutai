@@ -158,6 +158,11 @@ class Main():
                 #self.smbc_order(sys.argv[3])
                 exit()
 
+            # 空売り注文が可能かをチェックする
+            elif exec_type == 'check':
+                self.smbc_check()
+                exit()
+
             # 実行処理の設定が不正
             else:
                 self.log.error('第二引数が無効です')
@@ -595,6 +600,44 @@ class Main():
 
         self.log.warning('取得対象の銘柄がないため処理を終了します')
         exit()
+
+    def smbc_check(self):
+        '''SMBC日興証券で空売り注文が行える状態かチェックする'''
+        # 配当落調整金の支払期日が近づいた際などにSMBCから重要なお知らせとしてログイン直後の画面に表示がされる
+        # この表示がされると確認ボタンを押すまで一切他の画面へ遷移できなくなり、注文や在庫チェックが行えなくなる
+        # この場合に仕様上確認ボタンを押すのは難しいので、LINEでログインができない旨の通知を行う
+
+        # LINE Messaging APIのトークンを設定
+        try:
+            if config.LINE_MESSAGING_API_TOKEN != '':
+                self.output.set_messaging_api_token(config.LINE_MESSAGING_API_TOKEN)
+            else:
+                self.log.warning('config.pyにLINE Messaging APIあるいはNotifyのトークンが設定がされていません')
+                exit()
+        except AttributeError as e:
+            self.log.error('config.pyにLINE Notifyトークン用の変数(LINE_NOTIFY_API_KEY)が定義されていません')
+            self.log.error(str(e))
+            exit()
+
+
+        session = None
+
+        # ログイン処理を行う
+        for retry_count in range(3):
+            self.log.info(f'SMBC日興証券ログイン開始 {retry_count + 1}回目')
+            session = self.smbc.login.login()
+            if session == False:
+                self.log.error(f'SMBC日興証券ログインに失敗 {retry_count + 1}回目')
+                time.sleep(3)
+                continue
+            self.log.info(f'SMBC日興証券ログイン終了 {retry_count + 1}回目')
+            break
+
+        # ログインに3回失敗したらLINEで送信
+        if session == False:
+            self.line_send('SMBC日興証券にログインができません。重要なお知らせが出ている可能性があります')
+
+        return
 
     def get_stock_info_csv(self):
         '''
