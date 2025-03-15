@@ -425,15 +425,25 @@ class Steal(Main):
             ### デバッグ用ここまで
             return 2
 
+        # 注文価格がない(=成行)の場合
         if order_price == None:
             self.log.info(f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: 成行')
+            # LINEで通知
             result, error_message = self.output.line([f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: 成行'])
             if result == False:
                 self.log.error(error_message)
+        # 注文価格がある場合
         else:
             self.log.info(f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: {order_price}円')
             result, error_message = self.output.line([f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: {order_price}円'])
             if result == False:
+                self.log.error(error_message)
+
+        # steal_listから削除し、ordered_listに追加する
+        result, error_message = self.ordered_csv_operate(stock_code, num, None)
+        if result == False:
+            # 既にエラーログを出している(Noneの)場合は出さない
+            if error_message is not None:
                 self.log.error(error_message)
 
         return 1
@@ -529,9 +539,12 @@ class Steal(Main):
 
         return True
 
-    def get_steal_list(self):
+    def get_steal_list(self, get_priority_steal_list = True):
         '''
         一般売対象銘柄のリストをCSVから取得する
+
+        Args:
+            get_priority_steal_list(bool): priority_steal_list.csvを取得対象とするか
 
         Returns:
             result(bool): 実行結果
@@ -540,19 +553,21 @@ class Steal(Main):
         '''
         steal_list = []
 
-        # 在庫状態に応じた優先度順に並び変えたCSVがあればそこから取得
-        try:
-            with open('priority_steal_list.csv', 'r', newline = '', encoding = 'UTF-8') as csvfile:
-                reader = csv.reader(csvfile)
-                for row in reader:
-                    steal_list.append(row)
-        except Exception as e:
-            self.log.error(f'監視/自動注文対象銘柄CSVの取得に失敗(優先度ソート)\n{e}')
-            steal_list = []
+        # priority_steal_listを取得するか
+        if get_priority_steal_list:
+            # 在庫状態に応じた優先度順に並び変えたCSVがあればそこから取得
+            try:
+                with open('priority_steal_list.csv', 'r', newline = '', encoding = 'UTF-8') as csvfile:
+                    reader = csv.reader(csvfile)
+                    for row in reader:
+                        steal_list.append(row)
+            except Exception as e:
+                self.log.warning(f'監視/自動注文対象銘柄CSVの取得に失敗(優先度ソート)\n{e}')
+                steal_list = []
 
-        # 取得できた場合はこれを返す
-        if len(steal_list) != 0:
-            return True, steal_list
+            # 取得できた場合はこれを返す
+            if len(steal_list) != 0:
+                return True, steal_list
 
         # 優先度順のCSVが取れなかった場合は、在庫状態関係なく列挙したlistについて取得する
         try:
@@ -609,6 +624,51 @@ class Steal(Main):
                     return row['yoku_sdaka']
 
         return None
+
+    def ordered_csv_operate(self, stock_code, num, price = None):
+        '''
+        空売り注文に成功した銘柄をsteal_list.csvから削除し、recorded_list.csvに追記する
+
+        Args:
+            stock_code(str): 証券コード
+            num(int): 発注数量
+            price(float or None): 発注価格 ※成行の場合はNone
+
+        Returns:
+            result(bool): 実行結果
+            error_message(str or None): エラーメッセージ ※成功の場合はNone
+        '''
+        # steal_list.csvを取得 同一プロセスで2回以上削除する可能性があるためインスタンス変数からは取らない
+        result, steal_list = self.get_steal_list(False)
+        if result == False:
+            return result, steal_list
+
+        # 優待補足情報
+        yutai_detail = None
+
+        # リストから証券コード・株数が合致する上位1件のみを削除する
+        for i, row in enumerate(steal_list):
+            if str(row[0]) == str(stock_code) and str(row[1]) == str(num):
+                yutai_detail = str(row[2])
+                del steal_list[i]
+                break
+
+        # 成行の場合は価格が入っていないので設定
+        if price == None:
+            price == '成行'
+
+        # 削除したレコードの情報をordered_list.csvに記録する
+        delete_info = [datetime.now().strftime('%Y/%m/%d %H:%M:%S'), str(stock_code), str(num), str(price), str(yutai_detail)]
+        result = self.output.output_csv(data = delete_info, file_name = 'ordered_list.csv', add_time = False, data_folder = False, mode = 'a')
+        if result == False:
+            return result, None # 既にoutput_csv()でエラーログ出しているので出さない
+
+        # 削除後のデータをsteal_listに上書きする
+        result = self.output.output_csv(data = steal_list, file_name = 'steal_list.csv', add_time = False, data_folder = False, mode = 'w')
+        if result == False:
+            return result, None
+
+        return True, None
 
     def create_steal_file(self):
         '''プロセス使用中のファイルを作成する'''
