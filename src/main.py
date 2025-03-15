@@ -119,13 +119,14 @@ class Main():
                     if result == False:
                         self.log.error(error_message)
 
-                # LINEでデータ送信
-                # 1群目
-                self.kabucom_line_send(mold_data, data_type, self.first_stock_list)
-                # 2群目
-                self.kabucom_line_send(mold_data, data_type, self.second_stock_list)
-                # 3群目
-                self.kabucom_line_send(mold_data, data_type, self.third_stock_list)
+                # LINEで送信する設定になっている場合のみでデータ送信
+                if config.LINE_STOCK_NOTICE:
+                    # 1群目
+                    self.kabucom_line_send(mold_data, data_type, self.first_stock_list)
+                    # 2群目
+                    self.kabucom_line_send(mold_data, data_type, self.second_stock_list)
+                    # 3群目
+                    self.kabucom_line_send(mold_data, data_type, self.third_stock_list)
                 exit()
 
             # 実行処理の設定が不正
@@ -481,7 +482,7 @@ class Main():
         self.log.info('SMBC日興証券一般在庫取得終了')
 
         # 在庫情報のLINE通知
-        self.log.info('SMBC日興証券一般在庫LINE通知処理開始')
+        self.log.info('SMBC日興証券一般在庫出力処理開始')
         message = ''
         for code in mix_code_list.keys():
             if mix_code_list[code] == None:
@@ -500,9 +501,13 @@ class Main():
             if result == False:
                 self.log.error(error_message)
 
-        self.line_send(message)
+        # LINE送信がオンの場合は送る
+        if config.LINE_STOCK_NOTICE:
+            self.log.info('SMBC日興証券一般在庫LINE通知処理開始')
+            self.line_send(message)
+            self.log.info('SMBC日興証券一般在庫LINE通知処理終了')
 
-        self.log.info('SMBC日興証券一般在庫LINE通知処理終了')
+        self.log.info('SMBC日興証券一般在庫出力処理終了')
 
         # 在庫確保の優先順を決めてCSVに保存
         self.log.info('SMBC日興証券の在庫順ソートCSV出力処理開始')

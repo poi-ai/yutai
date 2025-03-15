@@ -23,7 +23,7 @@ class Output():
         dict型のデータをCSVへ出力する
 
         Args:
-            data(list[dict{},dict{},...]): dictで保持されているデータのlist
+            data(list[dict{},dict{},...] or list): 出力をするデータ
             file_name(str): 出力するCSVのファイル名
             add_header(bool): ヘッダー行を追加するか、file_nameのCSVが既に存在する場合は無視される
             add_time(bool): 出力するCSVに時間情報を付けるか
