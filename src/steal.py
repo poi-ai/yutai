@@ -460,6 +460,7 @@ class Steal(Main):
 
         # 非営業日は恐らく在庫補充されなさそうなので、監視をやめる
         if not holiday.is_exchange_workday(now):
+            self.log.info('非営業日なので処理を終了します\n')
             return False
 
         # メンテナンス時間(2:00~3:59)なら処理を終了させる
