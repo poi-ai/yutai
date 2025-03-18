@@ -655,10 +655,10 @@ class Steal(Main):
 
         # 成行の場合は価格が入っていないので設定
         if price == None:
-            price == '成行'
+            price = '成行'
 
         # 削除したレコードの情報をordered_list.csvに記録する
-        delete_info = [datetime.now().strftime('%Y/%m/%d %H:%M:%S'), str(stock_code), str(num), str(price), str(yutai_detail)]
+        delete_info = [[datetime.now().strftime('%Y/%m/%d %H:%M:%S'), str(stock_code), str(num), str(price), str(yutai_detail)]]
         result = self.output.output_csv(data = delete_info, file_name = 'ordered_list.csv', add_time = False, data_folder = False, mode = 'a')
         if result == False:
             return result, None # 既にoutput_csv()でエラーログ出しているので出さない
