@@ -25,6 +25,8 @@ class Steal(Main):
         self.excessive_access_count = 0
         # 同一プロセスが起動しているか
         self.multi_process = False
+        # priority_steal_list.csvから取得するか(1: する、0: しない(=steal_list.csvから取得))
+        self.get_priority_flag = False
 
         # LINE通知用トークンのチェック/設定
         self.line_token_check()
@@ -143,8 +145,13 @@ class Steal(Main):
             if result == False:
                 return False
 
+            # 1回でも在庫チェックを行った銘柄の証券コード
+            checked_list = set()
+            request_count = 0
+
             for target in steal_list:
-                counter += 1
+                request_count += 1
+
                 # セッションが切れている場合は再ログイン
                 if self.smbc_session == False:
                     self.log.info('SMBC日興証券再ログイン開始')
@@ -172,12 +179,14 @@ class Steal(Main):
                 # 再ログイン(セッション取得)した方がいいエラー(接続エラー/不明なエラー)
                 elif result == 2:
                     self.smbc_session = False
+                    time.sleep(1)
 
                     # 最大3回セッションを取り直す
                     for _ in range(3):
                         self.log.info('SMBC日興証券再ログイン開始')
                         self.smbc_session = self.smbc.login.login()
                         self.log.info('SMBC日興証券再ログイン終了')
+                        time.sleep(1)
                         if self.smbc_session != False:
                             break
 
@@ -203,10 +212,12 @@ class Steal(Main):
                             # 売り禁か注文成功の場合は対象銘柄から除外後ループから抜ける
                             if result == 1:
                                 tmp_list = [sublist for sublist in tmp_list if sublist[0] != target[0]]
+                                checked_list.add(target[0])
                                 break
 
                             # ログイン情報関係エラーの場合ログインしなおし
                             if result == 2:
+                                time.sleep(1)
                                 self.log.info('SMBC日興証券再ログイン開始')
                                 self.smbc_session = self.smbc.login.login()
                                 self.log.info('SMBC日興証券再ログイン終了')
@@ -217,6 +228,7 @@ class Steal(Main):
 
                             # 在庫不足なら正常に接続はできているのでループから抜ける
                             elif result == 4:
+                                checked_list.add(target[0])
                                 break
 
                             # メンテ明けは強制的にセッションが切られるので再ログイン処理が必要
@@ -254,6 +266,10 @@ class Steal(Main):
                             exit()
                     time.sleep(0.2)
 
+                # 在庫をチェックできないエラー(メンテ時間/ログイン関連/過剰アクセスエラー)以外は1度以上リクエストを投げたとみなす / 重複の場合は追加されない
+                if result not in [2, 3, 5, 6]:
+                    checked_list.add(target[0])
+
                 # リミッターチェック
                 if self.limiter:
                     time.sleep(3)
@@ -261,8 +277,13 @@ class Steal(Main):
                 else:
                     # それでも0.8秒のマージンを取っておかないと過剰エラーになるので待つ
                     time.sleep(0.8)
-                    # 50周したらリミッターをかける(全銘柄50周ではなく1銘柄で1周扱い)
-                    if counter >= 50:
+                    # 全銘柄で1度以上リクエストを投げたらリミッターをかける
+                    if len(checked_list) == len(steal_list):
+                        self.log.info('全銘柄で1度以上リクエストを投げたためリミッターをかけます')
+                        self.limiter = True
+                    # バグのリカバリとして全銘柄2周した場合もリミッターをかける
+                    if request_count >= len(steal_list) * 2:
+                        self.log.info('全銘柄2周したためリミッターをかけます')
                         self.limiter = True
 
             # 除外した銘柄情報をメインリストに反映
@@ -510,8 +531,12 @@ class Steal(Main):
         # 17:29なら17:30:03まで待つ
         elif now.hour == 17 and now.minute == 29:
             target_time = datetime(now.year, now.month, now.day, 17, 30, 3)
-            # 争奪戦用にリミッター解除
-            self.limiter = False
+            # priority_listから取得した(=在庫補充)銘柄がある場合のみ争奪戦用にリミッター解除
+            if self.get_priority_flag:
+                self.log.info('priority_steal_list.csvから取得した銘柄があるためリミッターを解除します')
+                self.limiter = False
+            else:
+                self.log.info('priority_steal_list.csvから取得した銘柄がないためリミッターを解除しません')
 
         # ~~20:20の取引再開でもセッションは切れないため、20:19まで待機→セッション接続(ログイン)→20:20:00まで待機とする~~
         # 注文中断時間(20:15~20:18)なら20:19まで待つ
@@ -576,6 +601,7 @@ class Steal(Main):
 
             # 取得できた場合はこれを返す
             if len(steal_list) != 0:
+                self.get_priority_flag = True
                 return True, steal_list
 
         # 優先度順のCSVが取れなかった場合は、在庫状態関係なく列挙したlistについて取得する
