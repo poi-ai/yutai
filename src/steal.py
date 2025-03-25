@@ -259,8 +259,8 @@ class Steal(Main):
                     time.sleep(3)
                 # リミットがかかっていない場合
                 else:
-                    # それでも0.5秒のマージンを取っておかないと過剰エラーになるので待つ
-                    time.sleep(0.4)
+                    # それでも0.8秒のマージンを取っておかないと過剰エラーになるので待つ
+                    time.sleep(0.8)
                     # 50周したらリミッターをかける(全銘柄50周ではなく1銘柄で1周扱い)
                     if counter >= 50:
                         self.limiter = True
@@ -347,6 +347,11 @@ class Steal(Main):
             self.log.warning('過剰アクセスのため注文できません')
             return 6
 
+        # 過剰アクセスエラー2
+        if 'NOL75998E' in soup_text:
+            self.log.warning('過剰アクセスのため注文できません2')
+            return 6
+
         # 仮想売買チェックエラー
         if 'NOL77178E' in soup_text:
             self.log.warning('既に信用買注文が入っているため注文できません')
@@ -400,6 +405,11 @@ class Steal(Main):
         # 過剰アクセスエラー
         if 'NOL76980E' in soup_text:
             self.log.warning('過剰アクセスのため注文できません(注文確認画面)')
+            return 6
+
+        # 過剰アクセスエラー2
+        if 'NOL75998E' in soup_text:
+            self.log.warning('過剰アクセスのため注文できません2(注文確認画面)')
             return 6
 
         # 在庫チェック
