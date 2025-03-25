@@ -39,6 +39,9 @@ CSV_NAME = '8month'
 
 ### LINE通知 ###
 
+# LINEで在庫数通知を送るか
+LINE_STOCK_NOTICE = True
+
 # LINE NotifyのAPIキー
 LINE_NOTIFY_API_KEY = ''
 

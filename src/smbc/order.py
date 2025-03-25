@@ -2,6 +2,7 @@ import config
 import requests
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
+from requests.exceptions import ConnectTimeout, Timeout, ReadTimeout
 
 class Order():
     '''SMBC日興証券で注文を行う'''
@@ -75,7 +76,7 @@ class Order():
         if now.hour == 5 and now.minute < 2:
             connect_timeout, read_time_out = 0.5, 1 # 接続タイムアウト0.5秒、HTML読み込みタイムアウトは1秒 TODO ここシビア。readは緩和するかも
         else:
-            connect_timeout, read_time_out = 1, 2 # 接続タイムアウト1秒、HTML読み込みタイムアウトは2秒
+            connect_timeout, read_time_out = 1, 5 # 接続タイムアウト1秒、HTML読み込みタイムアウトは5秒
 
         # バグで過剰アクセスにならないようにアクセス間隔を調整
         self.access_manager['counter'] += 1
@@ -98,7 +99,13 @@ class Order():
                              data = post_info,
                              headers = headers,
                              timeout = (connect_timeout, read_time_out))
-        except requests.exceptions.ConnectTimeout as e:
+        except ConnectTimeout as e:
+            self.log.error(f'接続タイムアウトエラー\n{e}')
+            return False, 1
+        except ReadTimeout as e:
+            self.log.error(f'読み込みタイムアウトエラー\n{e}')
+            return False, 1
+        except Timeout as e:
             self.log.error(f'タイムアウトエラー\n{e}')
             return False, 1
         except Exception as e:
@@ -203,7 +210,13 @@ class Order():
                              data = post_info,
                              headers = headers,
                              timeout = (10, 10)) # 接続タイムアウト10秒
-        except requests.exceptions.ConnectTimeout as e:
+        except ConnectTimeout as e:
+            self.log.error(f'接続タイムアウトエラー\n{e}')
+            return False, 1
+        except ReadTimeout as e:
+            self.log.error(f'読み込みタイムアウトエラー\n{e}')
+            return False, 1
+        except Timeout as e:
             self.log.error(f'タイムアウトエラー\n{e}')
             return False, 1
         except:
