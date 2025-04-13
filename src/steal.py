@@ -25,6 +25,8 @@ class Steal(Main):
         self.excessive_access_count = 0
         # 同一プロセスが起動しているか
         self.multi_process = False
+        # priority_steal_list.csvから取得するか(1: する、0: しない(=steal_list.csvから取得))
+        self.get_priority_flag = False
 
         # LINE通知用トークンのチェック/設定
         self.line_token_check()
@@ -143,8 +145,13 @@ class Steal(Main):
             if result == False:
                 return False
 
+            # 1回でも在庫チェックを行った銘柄の証券コード
+            checked_list = set()
+            request_count = 0
+
             for target in steal_list:
-                counter += 1
+                request_count += 1
+
                 # セッションが切れている場合は再ログイン
                 if self.smbc_session == False:
                     self.log.info('SMBC日興証券再ログイン開始')
@@ -172,12 +179,14 @@ class Steal(Main):
                 # 再ログイン(セッション取得)した方がいいエラー(接続エラー/不明なエラー)
                 elif result == 2:
                     self.smbc_session = False
+                    time.sleep(1)
 
                     # 最大3回セッションを取り直す
                     for _ in range(3):
                         self.log.info('SMBC日興証券再ログイン開始')
                         self.smbc_session = self.smbc.login.login()
                         self.log.info('SMBC日興証券再ログイン終了')
+                        time.sleep(1)
                         if self.smbc_session != False:
                             break
 
@@ -203,10 +212,12 @@ class Steal(Main):
                             # 売り禁か注文成功の場合は対象銘柄から除外後ループから抜ける
                             if result == 1:
                                 tmp_list = [sublist for sublist in tmp_list if sublist[0] != target[0]]
+                                checked_list.add(target[0])
                                 break
 
                             # ログイン情報関係エラーの場合ログインしなおし
                             if result == 2:
+                                time.sleep(1)
                                 self.log.info('SMBC日興証券再ログイン開始')
                                 self.smbc_session = self.smbc.login.login()
                                 self.log.info('SMBC日興証券再ログイン終了')
@@ -217,6 +228,7 @@ class Steal(Main):
 
                             # 在庫不足なら正常に接続はできているのでループから抜ける
                             elif result == 4:
+                                checked_list.add(target[0])
                                 break
 
                             # メンテ明けは強制的にセッションが切られるので再ログイン処理が必要
@@ -236,8 +248,6 @@ class Steal(Main):
                                         self.log.error(f'10回以上過剰アクセスエラーが出ているため処理を強制終了します')
                                         self.output.line([f'10回以上過剰アクセスエラーが出ているため処理を強制終了します'])
                                         exit()
-
-
                                 continue
 
                             # 他,続行不可能エラー(-1)の場合などは一旦ループを抜けてループ外で処理させる
@@ -256,15 +266,24 @@ class Steal(Main):
                             exit()
                     time.sleep(0.2)
 
+                # 在庫をチェックできないエラー(メンテ時間/ログイン関連/過剰アクセスエラー)以外は1度以上リクエストを投げたとみなす / 重複の場合は追加されない
+                if result not in [2, 3, 5, 6]:
+                    checked_list.add(target[0])
+
                 # リミッターチェック
                 if self.limiter:
                     time.sleep(3)
                 # リミットがかかっていない場合
                 else:
-                    # それでも0.5秒のマージンを取っておかないと過剰エラーになるので待つ
-                    time.sleep(0.4)
-                    # 50周したらリミッターをかける(全銘柄50周ではなく1銘柄で1周扱い)
-                    if counter >= 50:
+                    # それでも1.5秒のマージンを取っておかないと過剰エラーになるので待つ
+                    time.sleep(1.5)
+                    # 全銘柄で1度以上リクエストを投げたらリミッターをかける
+                    if len(checked_list) == len(steal_list):
+                        self.log.info('全銘柄で1度以上リクエストを投げたためリミッターをかけます')
+                        self.limiter = True
+                    # バグのリカバリとして全銘柄2周した場合もリミッターをかける
+                    if request_count >= len(steal_list) * 2:
+                        self.log.info('全銘柄2周したためリミッターをかけます')
                         self.limiter = True
 
             # 除外した銘柄情報をメインリストに反映
@@ -349,6 +368,11 @@ class Steal(Main):
             self.log.warning('過剰アクセスのため注文できません')
             return 6
 
+        # 過剰アクセスエラー2
+        if 'NOL75998E' in soup_text:
+            self.log.warning('過剰アクセスのため注文できません2')
+            return 6
+
         # 仮想売買チェックエラー
         if 'NOL77178E' in soup_text:
             self.log.warning('既に信用買注文が入っているため注文できません')
@@ -404,6 +428,11 @@ class Steal(Main):
             self.log.warning('過剰アクセスのため注文できません(注文確認画面)')
             return 6
 
+        # 過剰アクセスエラー2
+        if 'NOL75998E' in soup_text:
+            self.log.warning('過剰アクセスのため注文できません2(注文確認画面)')
+            return 6
+
         # 在庫チェック
         if 'NOL75401E' in soup_text or 'NOL75400E' in soup_text:
             self.log.info('一般信用在庫が足りないため注文できません(注文確認画面)')
@@ -425,15 +454,25 @@ class Steal(Main):
             ### デバッグ用ここまで
             return 2
 
+        # 注文価格がない(=成行)の場合
         if order_price == None:
             self.log.info(f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: 成行')
+            # LINEで通知
             result, error_message = self.output.line([f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: 成行'])
             if result == False:
                 self.log.error(error_message)
+        # 注文価格がある場合
         else:
             self.log.info(f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: {order_price}円')
             result, error_message = self.output.line([f'注文が完了しました 証券コード: {stock_code} 株数: {num}株 注文価格: {order_price}円'])
             if result == False:
+                self.log.error(error_message)
+
+        # steal_listから削除し、ordered_listに追加する
+        result, error_message = self.ordered_csv_operate(stock_code, num, None)
+        if result == False:
+            # 既にエラーログを出している(Noneの)場合は出さない
+            if error_message is not None:
                 self.log.error(error_message)
 
         return 1
@@ -450,6 +489,7 @@ class Steal(Main):
 
         # 非営業日は恐らく在庫補充されなさそうなので、監視をやめる
         if not holiday.is_exchange_workday(now):
+            self.log.info('非営業日なので処理を終了します\n')
             return False
 
         # メンテナンス時間(2:00~3:59)なら処理を終了させる
@@ -491,8 +531,12 @@ class Steal(Main):
         # 17:29なら17:30:03まで待つ
         elif now.hour == 17 and now.minute == 29:
             target_time = datetime(now.year, now.month, now.day, 17, 30, 3)
-            # 争奪戦用にリミッター解除
-            self.limiter = False
+            # priority_listから取得した(=在庫補充)銘柄がある場合のみ争奪戦用にリミッター解除
+            if self.get_priority_flag:
+                self.log.info('priority_steal_list.csvから取得した銘柄があるためリミッターを解除します')
+                self.limiter = False
+            else:
+                self.log.info('priority_steal_list.csvから取得した銘柄がないためリミッターを解除しません')
 
         # ~~20:20の取引再開でもセッションは切れないため、20:19まで待機→セッション接続(ログイン)→20:20:00まで待機とする~~
         # 注文中断時間(20:15~20:18)なら20:19まで待つ
@@ -529,9 +573,12 @@ class Steal(Main):
 
         return True
 
-    def get_steal_list(self):
+    def get_steal_list(self, get_priority_steal_list = True):
         '''
         一般売対象銘柄のリストをCSVから取得する
+
+        Args:
+            get_priority_steal_list(bool): priority_steal_list.csvを取得対象とするか
 
         Returns:
             result(bool): 実行結果
@@ -540,19 +587,22 @@ class Steal(Main):
         '''
         steal_list = []
 
-        # 在庫状態に応じた優先度順に並び変えたCSVがあればそこから取得
-        try:
-            with open('priority_steal_list.csv', 'r', newline = '', encoding = 'UTF-8') as csvfile:
-                reader = csv.reader(csvfile)
-                for row in reader:
-                    steal_list.append(row)
-        except Exception as e:
-            self.log.error(f'監視/自動注文対象銘柄CSVの取得に失敗(優先度ソート)\n{e}')
-            steal_list = []
+        # priority_steal_listを取得するか
+        if get_priority_steal_list:
+            # 在庫状態に応じた優先度順に並び変えたCSVがあればそこから取得
+            try:
+                with open('priority_steal_list.csv', 'r', newline = '', encoding = 'UTF-8') as csvfile:
+                    reader = csv.reader(csvfile)
+                    for row in reader:
+                        steal_list.append(row)
+            except Exception as e:
+                self.log.warning(f'監視/自動注文対象銘柄CSVの取得に失敗(優先度ソート)\n{e}')
+                steal_list = []
 
-        # 取得できた場合はこれを返す
-        if len(steal_list) != 0:
-            return True, steal_list
+            # 取得できた場合はこれを返す
+            if len(steal_list) != 0:
+                self.get_priority_flag = True
+                return True, steal_list
 
         # 優先度順のCSVが取れなかった場合は、在庫状態関係なく列挙したlistについて取得する
         try:
@@ -609,6 +659,51 @@ class Steal(Main):
                     return row['yoku_sdaka']
 
         return None
+
+    def ordered_csv_operate(self, stock_code, num, price = None):
+        '''
+        空売り注文に成功した銘柄をsteal_list.csvから削除し、recorded_list.csvに追記する
+
+        Args:
+            stock_code(str): 証券コード
+            num(int): 発注数量
+            price(float or None): 発注価格 ※成行の場合はNone
+
+        Returns:
+            result(bool): 実行結果
+            error_message(str or None): エラーメッセージ ※成功の場合はNone
+        '''
+        # steal_list.csvを取得 同一プロセスで2回以上削除する可能性があるためインスタンス変数からは取らない
+        result, steal_list = self.get_steal_list(False)
+        if result == False:
+            return result, steal_list
+
+        # 優待補足情報
+        yutai_detail = None
+
+        # リストから証券コード・株数が合致する上位1件のみを削除する
+        for i, row in enumerate(steal_list):
+            if str(row[0]) == str(stock_code) and str(row[1]) == str(num):
+                yutai_detail = str(row[2])
+                del steal_list[i]
+                break
+
+        # 成行の場合は価格が入っていないので設定
+        if price == None:
+            price = '成行'
+
+        # 削除したレコードの情報をordered_list.csvに記録する
+        delete_info = [[datetime.now().strftime('%Y/%m/%d %H:%M:%S'), str(stock_code), str(num), str(price), str(yutai_detail)]]
+        result = self.output.output_csv(data = delete_info, file_name = 'ordered_list.csv', add_time = False, data_folder = False, mode = 'a')
+        if result == False:
+            return result, None # 既にoutput_csv()でエラーログ出しているので出さない
+
+        # 削除後のデータをsteal_listに上書きする
+        result = self.output.output_csv(data = steal_list, file_name = 'steal_list.csv', add_time = False, data_folder = False, mode = 'w')
+        if result == False:
+            return result, None
+
+        return True, None
 
     def create_steal_file(self):
         '''プロセス使用中のファイルを作成する'''
