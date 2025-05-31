@@ -95,7 +95,7 @@ class Steal(Main):
 
         # SMBCへログイン
         self.log.info('SMBC日興証券ログイン開始')
-        self.smbc_session = self.smbc.login.login()
+        self.smbc_session = self.smbc_login()
         self.log.info('SMBC日興証券ログイン終了')
         # 処理失敗
         if self.smbc_session == False:
@@ -105,7 +105,7 @@ class Steal(Main):
                 if now.hour == 5 and now.minute == 0:
                     time.sleep(1)
                     self.log.info('SMBC日興証券再ログイン開始')
-                    self.smbc_session = self.smbc.login.login()
+                    self.smbc_session = self.smbc_login()
                     self.log.info('SMBC日興証券再ログイン終了')
                 else:
                     break
@@ -155,7 +155,7 @@ class Steal(Main):
                 # セッションが切れている場合は再ログイン
                 if self.smbc_session == False:
                     self.log.info('SMBC日興証券再ログイン開始')
-                    self.smbc_session = self.smbc.login.login()
+                    self.smbc_session = self.smbc_login()
                     self.log.info('SMBC日興証券再ログイン終了')
                     if self.smbc_session == False:
                         return False
@@ -184,7 +184,7 @@ class Steal(Main):
                     # 最大3回セッションを取り直す
                     for _ in range(3):
                         self.log.info('SMBC日興証券再ログイン開始')
-                        self.smbc_session = self.smbc.login.login()
+                        self.smbc_session = self.smbc_login()
                         self.log.info('SMBC日興証券再ログイン終了')
                         time.sleep(1)
                         if self.smbc_session != False:
@@ -219,7 +219,7 @@ class Steal(Main):
                             if result == 2:
                                 time.sleep(1)
                                 self.log.info('SMBC日興証券再ログイン開始')
-                                self.smbc_session = self.smbc.login.login()
+                                self.smbc_session = self.smbc_login()
                                 self.log.info('SMBC日興証券再ログイン終了')
 
                             # メンテ中なら0.5秒待機
@@ -234,7 +234,7 @@ class Steal(Main):
                             # メンテ明けは強制的にセッションが切られるので再ログイン処理が必要
                             elif result == 5 and login_flag == False:
                                 self.log.info('SMBC日興証券再ログイン開始')
-                                self.smbc_session = self.smbc.login.login()
+                                self.smbc_session = self.smbc_login()
                                 self.log.info('SMBC日興証券再ログイン終了')
                                 login_flag = True
 

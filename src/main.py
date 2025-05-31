@@ -1,6 +1,6 @@
 import config, common
-import kabucom, matsui, rakuten, sbi, smbc
-import csv, sys, time, pandas as pd, traceback
+import gmail, kabucom, matsui, rakuten, sbi, smbc
+import csv, sys, time, pandas as pd, re, traceback
 
 class Main():
     def __init__(self):
@@ -24,6 +24,7 @@ class Main():
                                 config.SMBC_BRANCH_CODE,
                                 config.SMBC_ACCOUNT_NUMBER,
                                 config.SMBC_LOGIN_PASSWORD)
+            self.gmail = gmail.Gmail(self.log)
         except AttributeError:
             self.log.error('config.pyの証券会社のID・パスワード設定が正常に行われていません')
             exit()
@@ -347,7 +348,7 @@ class Main():
 
         # ログイン
         self.log.info('SMBC日興証券ログイン開始')
-        session = self.smbc.login.login()
+        session = self.smbc_login()
         if session == False:
             return False
         self.log.info('SMBC日興証券ログイン終了')
@@ -416,7 +417,7 @@ class Main():
 
         # ログイン
         self.log.info('SMBC日興証券ログイン開始')
-        session = self.smbc.login.login()
+        session = self.smbc_login()
         if session == False:
             return False
         self.log.info('SMBC日興証券ログイン終了')
@@ -529,7 +530,7 @@ class Main():
         '''SMBC日興証券で一般空売りの注文を行う'''
         # ログイン
         self.log.info('SMBC日興証券ログイン開始')
-        session = self.smbc.login.login()
+        session = self.smbc_login()
         if session == False:
             return False
         self.log.info('SMBC日興証券ログイン終了')
@@ -624,13 +625,12 @@ class Main():
             self.log.error(str(e))
             exit()
 
-
         session = None
 
         # ログイン処理を行う
         for retry_count in range(3):
             self.log.info(f'SMBC日興証券ログイン開始 {retry_count + 1}回目')
-            session = self.smbc.login.login()
+            session = self.smbc_login()
             if session == False:
                 self.log.error(f'SMBC日興証券ログインに失敗 {retry_count + 1}回目')
                 time.sleep(3)
@@ -814,6 +814,96 @@ class Main():
                     self.log.error(error_message)
         else:
             self.log.error(f'LINE Messaging API、Notifyどちらのトークンも設定されていないためメッセージが送信できません\n送信メッセージ: {notice_message}')
+
+    def smbc_login(self):
+        '''
+        SMBC日興証券のログイン処理を行う
+        二段階認証対応が必要な場合があるのでSMBCへのログインは必ずこのメソッドを通す
+
+        Returns:
+            session(request.Session): ログインセッション
+        '''
+
+        '''
+        # ログイン(requests)
+        self.log.info('SMBC日興証券ログイン開始')
+        session, display_type = self.smbc.login.login()
+        if session == False:
+            return False
+
+        time.sleep(2)
+        '''
+
+        # 二段階認証が必要な場合はSeleniumでログイン画面からやり直す
+        self.log.info('SMBC日興証券ログイン(Selenium)開始')
+        driver, result = self.smbc.login.login_selenium()
+        self.log.info('SMBC日興証券ログイン(Selenium)終了')
+
+        if result == False:
+            self.log.error('SMBC日興証券ログイン(Selenium)に失敗しました')
+            return False
+
+        # 二段階認証が必要な場合
+        if result == 'otp confirm':
+            self.log.info('ワンタイムパスワード発行処理開始')
+            driver = self.smbc.login.create_otp(driver)
+            if driver == False:
+                return False
+            self.log.info('ワンタイムパスワード発行処理終了')
+
+        # 二段階認証が必要で既にワンタイムパスワードが発行されている場合
+        # Gmailから発行したワンタイムパスワードの取得を行う
+        # トークンの有効性チェック/期限切れの場合は再発行
+        if result == 'otp confirm' or result == 'otp input':
+            self.log.info('アクセストークン有効性チェック開始')
+            result = self.gmail.token.token_check()
+            if result == False:
+                return False
+            self.log.info('アクセストークン有効性チェック終了')
+
+            time.sleep(1)
+
+            otp_value = None
+            # Gmailからワンタイムパスワードの取得
+            # 送信元アドレスを絞って固有のメールIDを取得
+            self.log.info('Gmailからワンタイムパスワード取得開始')
+            message_ids = self.gmail.mail.get_message_ids(query = 'from:ez_info@mail.smbcnikko.co.jp')
+
+            # メールIDからワンタイムパスワードを取得
+            for message_id in message_ids:
+                message = self.gmail.mail.get_message_content(message_id)
+                if message:
+                    # 件名チェック
+                    if 'ワンタイムパスワードのご連絡' in message['subject']:
+                        # 本文チェック
+                        re.match = re.search(r'ワンタイムパスワードは 「(\d{6})」 です', message['body'])
+                        if re.match:
+                            otp_value = re.match.group(1)
+                            break
+                    else:
+                        self.log.error('ワンタイムパスワードのメールが取得できませんでした')
+                        return False
+                else:
+                    self.log.error('メールの取得に失敗しました')
+                    return False
+
+            if otp_value == None:
+                self.log.error('ワンタイムパスワードの取得に失敗しました')
+                return False
+            self.log.info('Gmailからワンタイムパスワード取得終了')
+
+            # ワンタイムパスワードの送信
+            self.log.info('ワンタイムパスワード送信処理開始')
+            driver = self.smbc.login.send_otp(driver, otp_value)
+            if driver == False:
+                return False
+            self.log.info('ワンタイムパスワード送信処理終了')
+
+        self.log.info('SMBC日興証券ログイン終了')
+
+        # TODO driverのセッションをrequestsのセッションに変換する処理が必要
+
+        return True
 
     def test(self):
         '''テスト用コード'''
