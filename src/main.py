@@ -1,6 +1,6 @@
 import config, common
 import gmail, kabucom, matsui, rakuten, sbi, smbc
-import csv, sys, time, pandas as pd, re, traceback
+import csv, sys, time, pandas as pd, re, requests, traceback
 
 class Main():
     def __init__(self):
@@ -837,17 +837,19 @@ class Main():
         # 二段階認証が必要な場合はSeleniumでログイン画面からやり直す
         self.log.info('SMBC日興証券ログイン(Selenium)開始')
         driver, result = self.smbc.login.login_selenium()
-        self.log.info('SMBC日興証券ログイン(Selenium)終了')
-
         if result == False:
             self.log.error('SMBC日興証券ログイン(Selenium)に失敗しました')
+            self.line_send('SMBC日興証券ログイン(Selenium)に失敗しました') #16 認証確認後削除
             return False
+        self.log.info('SMBC日興証券ログイン(Selenium)終了')
 
         # 二段階認証が必要な場合
         if result == 'otp confirm':
             self.log.info('ワンタイムパスワード発行処理開始')
             driver = self.smbc.login.create_otp(driver)
             if driver == False:
+                self.log.error('ワンタイムパスワード発行処理に失敗しました')
+                self.line_send('ワンタイムパスワード発行処理に失敗しました') #16 認証確認後削除
                 return False
             self.log.info('ワンタイムパスワード発行処理終了')
 
@@ -860,8 +862,6 @@ class Main():
             if result == False:
                 return False
             self.log.info('アクセストークン有効性チェック終了')
-
-            time.sleep(1)
 
             otp_value = None
             # Gmailからワンタイムパスワードの取得
@@ -896,14 +896,54 @@ class Main():
             self.log.info('ワンタイムパスワード送信処理開始')
             driver = self.smbc.login.send_otp(driver, otp_value)
             if driver == False:
+                self.log.error('ワンタイムパスワード送信処理に失敗しました')
+                self.line_send('ワンタイムパスワード送信処理に失敗しました') #16 認証確認後削除
                 return False
             self.log.info('ワンタイムパスワード送信処理終了')
 
         self.log.info('SMBC日興証券ログイン終了')
 
-        # TODO driverのセッションをrequestsのセッションに変換する処理が必要
+        # seleniumのセッションをrequestsのセッションに変換する
+        session = self.selenium_to_requests(driver)
+        if session == False:
+            self.log.error('SMBC日興証券のセッション変換に失敗しました')
+            return False
 
-        return True
+        return session
+
+    def selenium_to_requests(self, driver):
+        '''
+        SeleniumのWebDriverセッションをrequestsのセッションに変換する
+
+        Args:
+            driver(selenium.webdriver): SeleniumのWebDriverオブジェクト
+
+        Returns:
+            session(requests.Session): 変換後のrequestsのセッション
+        '''
+
+        try:
+            # Seleniumのクッキーを取得
+            cookies = driver.get_cookies()
+
+            # requestsのセッションを作成
+            session = requests.Session()
+
+            # Seleniumのクッキーをrequestsのセッションに追加
+            for cookie in cookies:
+                # requestsのCookieJarにクッキーを追加
+                session.cookies.set(cookie['name'], cookie['value'], domain=cookie['domain'], path=cookie['path'], expires=cookie.get('expiry'))
+
+            # セッションのUser-AgentをSeleniumのものに設定
+            session.headers.update({'User-Agent': driver.execute_script("return navigator.userAgent;")})
+
+            # driverを閉じる
+            driver.quit()
+        except Exception as e:
+            self.log.error(f'Seleniumからrequestsへのセッション変換に失敗しました: {e}')
+            return False
+
+        return session
 
     def test(self):
         '''テスト用コード'''

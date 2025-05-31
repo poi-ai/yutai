@@ -149,7 +149,7 @@ class Login():
             login_button = driver.find_element(By.XPATH, '/html/body/main/div/div[2]/div/div[1]/div/div/div[1]/div[1]/div/form/div[4]/div/button')
             login_button.click()
 
-            time.sleep(3)
+            time.sleep(1)
 
             # 遷移後のページのソースを取得
             page_source = driver.page_source
@@ -170,8 +170,6 @@ class Login():
             if '前回ログイン' in soup_text:
                 self.log.info('ログイン成功')
                 return driver, 'success'
-
-            time.sleep(20)
 
         except Exception as e:
             self.log.error(f'ログイン処理でエラー: {e}')
@@ -235,6 +233,8 @@ class Login():
             # 認証ボタンをクリック
             auth_button = driver.find_element(By.XPATH, '/html/body/main/div/div[2]/div/div[2]/form/div[2]/button')
             auth_button.click()
+
+            time.sleep(1)
 
             page_source = driver.page_source
             if '前回ログイン' not in page_source:
