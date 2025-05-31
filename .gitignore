@@ -4,3 +4,5 @@ config.py
 test.py
 *__pycache__/
 *.pyc
+gmail_token.txt
+client_secret_*.json
