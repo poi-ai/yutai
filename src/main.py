@@ -733,6 +733,7 @@ class Main():
             return True
 
         zaiko_exist_list = []
+        zaiko_exist_history_list = []
         no_zaiko_list = []
 
         # 在庫の有無で別のリストに追加 TODO いずれ優先フラグを立てる
@@ -744,10 +745,11 @@ class Main():
                 continue
 
             if zaiko != None:
-                # 在庫があり、steal_listの在庫数以上の場合
+                # 在庫があり、在庫数がsteal_listに記載した確保したい数以上の場合
                 if zaiko > 0 and int(zaiko) >= int(steal[1]):
                     #steal[4] = 1
                     zaiko_exist_list.append(steal)
+                    zaiko_exist_history_list.append(steal + [self.log.today])
                 else:
                     #steal[4] = 0
                     no_zaiko_list.append(steal)
@@ -761,12 +763,24 @@ class Main():
         ### sort_zaiko_list = zaiko_exist_list + no_zaiko_list
 
         # CSVで出力を行い、実行結果を返り値として返す
-        return self.output.output_csv(data = sort_zaiko_list,
-                                      file_name = 'priority_steal_list.csv',
-                                      add_header = True,
-                                      add_time = False,
-                                      data_folder = False,
-                                      mode = 'w')
+        # まずはsteal.pyで拾うためのCSVを出力
+        result = self.output.output_csv(data = sort_zaiko_list,
+                                        file_name = 'priority_steal_list.csv',
+                                        add_header = True,
+                                        add_time = False,
+                                        data_folder = False,
+                                        mode = 'w')
+        # 次に履歴用のCSVを出力
+        result2 = self.output.output_csv(data = sort_zaiko_list,
+                                        file_name = f'priority_steal_list_history_{self.log.today_ym}.csv',
+                                        add_header = True,
+                                        add_time = False,
+                                        data_folder = False,
+                                        mode = 'a')
+
+        if result == False or result2 == False:
+            return False
+        return True
 
     def line_send(self, notice_message):
         '''

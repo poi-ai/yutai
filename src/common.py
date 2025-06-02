@@ -352,6 +352,7 @@ class Log():
         self.output = output
         self.filename = filename
         self.today = self.now().strftime("%Y%m%d")
+        self.today_ym = self.now().strftime("%Y%m")
         self.set()
 
     def set(self):
