@@ -469,7 +469,7 @@ class Steal(Main):
                 self.log.error(error_message)
 
         # steal_listから削除し、ordered_listに追加する
-        result, error_message = self.ordered_csv_operate(stock_code, num, None)
+        result, error_message = self.ordered_csv_operate(stock_code, num, order_price)
         if result == False:
             # 既にエラーログを出している(Noneの)場合は出さない
             if error_message is not None:
