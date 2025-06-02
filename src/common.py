@@ -15,7 +15,6 @@ class Output():
     def __init__(self, log):
         self.log = log
         self.culc = Culc()
-        self.notify_token = ''
         self.messaging_api_token = ''
 
     def output_csv(self, data, file_name, add_header = True, add_time = True, data_folder = True, mode = None):
@@ -123,17 +122,6 @@ class Output():
 
         return data_list
 
-    def set_notify_token(self, token):
-        '''
-        LINE Notifyのアクセストークンを設定する
-
-        Args:
-            token(str): LINE Notifyのアクセストークン
-
-        '''
-        self.notify_token = token
-        return
-
     def set_messaging_api_token(self, token):
         '''
         LINE Messaging APIのアクセストークンを設定する
@@ -158,14 +146,11 @@ class Output():
 
         '''
 
-        # インスタンス変数に設定されているアクセストークンからMessaging APIを用いるかNotifyを用いるか判定する
-        # 優先はMessaging API
+        # Messaging APIのキーチェック
         if self.messaging_api_token != '':
             return self.send_messaging_api(message)
-        elif self.notify_token != '':
-            return self.send_notify(message)
         else:
-            return False, f'LINE Messaging API、Notifyどちらのトークンも設定されていないためメッセージが送信できません\n送信メッセージ: {message}'
+            return False, f'LINE Messaging APIのトークンが設定されていないためメッセージが送信できません\n送信メッセージ: {message}'
 
     def send_messaging_api(self, message_list):
         '''
@@ -211,40 +196,6 @@ class Output():
                 return False, f'LINE Messaging APIのメッセージ送信でエラーが発生しました\nステータスコード: {r.status_code}\nエラー内容: {json.dumps(json.loads(r.content), indent=2)}'
             except Exception as e:
                 return False, f'LINE Messaging APIのメッセージ送信で発生しました\nエラー内容: {e}'
-
-        return True, ''
-
-
-    def send_notify(self, message):
-        '''
-        LINE Notifyを用いてメッセージを送信する
-
-        Args:
-            message(str) : LINE送信するメッセージ内容
-
-        Returns:
-            result(bool): 実行結果
-            error_message(str): エラー内容
-
-        '''
-
-        # ヘッダー設定
-        headers = {'Authorization': f'Bearer {self.notify_token}'}
-
-        # メッセージ設定
-        data = {'message': message}
-
-        # メッセージ送信
-        try:
-            r = requests.post('https://notify-api.line.me/api/notify', headers = headers, data = data)
-        except Exception as e:
-            return False, f'LINE Notify APIでのメッセージ送信に失敗しました\n{e}'
-
-        if r.status_code != 200:
-            try:
-                return False, f'LINE Notify APIでエラーが発生しました\nステータスコード: {r.status_code}\nエラー内容: {json.dumps(json.loads(r.content), indent=2)}'
-            except Exception as e:
-                return False, f'LINE Notify APIでエラーが発生しました\nエラー内容: {e}'
 
         return True, ''
 

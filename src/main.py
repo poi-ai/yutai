@@ -565,14 +565,11 @@ class Main():
             # LINE Messaging APIのトークンを設定
             if config.LINE_MESSAGING_API_TOKEN != '':
                 self.output.set_messaging_api_token(config.LINE_MESSAGING_API_TOKEN)
-            # ない場合はLINE Notifyのトークンを設定(~25/3まで)
-            elif config.LINE_NOTIFY_API_KEY != '':
-                self.output.set_notify_token(config.LINE_NOTIFY_API_KEY)
             else:
-                self.log.warning('config.pyにLINE Messaging APIあるいはNotifyのトークンが設定がされていません')
+                self.log.warning('config.pyにLINE Messaging APIのトークンが設定がされていません')
                 exit()
         except AttributeError as e:
-            self.log.error('config.pyにLINE Notifyトークン用の変数(LINE_NOTIFY_API_KEY)かMessaging APIトークン用の変数(LINE_MESSAGING_API_TOKEN)が定義されていません')
+            self.log.error('config.pyにMessaging APIトークン用の変数(LINE_MESSAGING_API_TOKEN)が定義されていません')
             self.log.error(str(e))
             exit()
 
@@ -618,10 +615,10 @@ class Main():
             if config.LINE_MESSAGING_API_TOKEN != '':
                 self.output.set_messaging_api_token(config.LINE_MESSAGING_API_TOKEN)
             else:
-                self.log.warning('config.pyにLINE Messaging APIあるいはNotifyのトークンが設定がされていません')
+                self.log.warning('config.pyにLINE Messaging APIのトークンが設定がされていません')
                 exit()
         except AttributeError as e:
-            self.log.error('config.pyにLINE Notifyトークン用の変数(LINE_NOTIFY_API_KEY)が定義されていません')
+            self.log.error('config.pyにMessaging APIトークン用の変数(LINE_MESSAGING_API_TOKEN)が定義されていません')
             self.log.error(str(e))
             exit()
 
@@ -800,20 +797,8 @@ class Main():
                 result, error_message = self.output.send_messaging_api(fukidashi_list)
                 if result == False:
                     self.log.error(error_message)
-
-        # LINE Notifyを使う場合
-        elif config.LINE_NOTIFY_API_KEY != '':
-            # 1000文字を超える場合は分割(念のため990文字ごとに)
-            notice_message_list = [notice_message[i:i + 990] for i in range(0, len(notice_message), 990)]
-
-            # 分割したものを一つずつ送信
-            for message in notice_message_list:
-                # LINEで送信
-                result, error_message = self.output.send_notify(message)
-                if result == False:
-                    self.log.error(error_message)
         else:
-            self.log.error(f'LINE Messaging API、Notifyどちらのトークンも設定されていないためメッセージが送信できません\n送信メッセージ: {notice_message}')
+            self.log.error(f'LINE Messaging APIのトークンが設定されていないためメッセージが送信できません\n送信メッセージ: {notice_message}')
 
     def smbc_login(self):
         '''

@@ -58,14 +58,11 @@ class Steal(Main):
             # LINE Messaging APIのトークンを設定
             if config.LINE_MESSAGING_API_TOKEN != '':
                 self.output.set_messaging_api_token(config.LINE_MESSAGING_API_TOKEN)
-            # ない場合はLINE Notifyのトークンを設定(~25/3まで)
-            elif config.LINE_NOTIFY_API_KEY != '':
-                self.output.set_notify_token(config.LINE_NOTIFY_API_KEY)
             else:
-                self.log.warning('config.pyにLINE Messaging APIあるいはNotifyのトークンが設定がされていません')
+                self.log.warning('config.pyにLINE Messaging APIのトークンが設定がされていません')
                 exit()
         except AttributeError as e:
-            self.log.error('config.pyにLINE Notifyトークン用の変数(LINE_NOTIFY_API_KEY)かMessaging APIトークン用の変数(LINE_MESSAGING_API_TOKEN)が定義されていません')
+            self.log.error('config.pyにMessaging APIトークン用の変数(LINE_MESSAGING_API_TOKEN)が定義されていません')
             self.log.error(str(e))
             exit()
 
