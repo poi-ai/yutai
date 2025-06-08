@@ -413,7 +413,7 @@ class Main():
         unique_codes = set(all_codes)
 
         # 在庫数と合わせて保持できるように連想配列に書き換える
-        mix_code_list = {code: None for code in unique_codes}
+        mix_code_list = {str(code): None for code in unique_codes}
 
         # ログイン
         self.log.info('SMBC日興証券ログイン開始')
@@ -739,7 +739,21 @@ class Main():
         # 在庫の有無で別のリストに追加 TODO いずれ優先フラグを立てる
         for steal in steal_list:
             try:
-                zaiko = zaiko_info[steal[0]]['stock_num']
+                print(zaiko_info)
+                print(steal)
+                target_stock_code = str(steal[0])
+                # 取得対象の在庫情報を持っているかのチェック
+                if target_stock_code not in zaiko_info:
+                    self.log.warning(f'在庫情報に銘柄コード: {target_stock_code}が存在しません')
+                    no_zaiko_list.append(steal)
+                    continue
+
+                # キーstock_numの値を持っている(=取引可能銘柄)かをチェック
+                if zaiko_info[target_stock_code] is None:
+                    no_zaiko_list.append(steal)
+                    continue
+                else:
+                    zaiko = zaiko_info[target_stock_code]['stock_num']
             except Exception as e:
                 self.log.error(f'在庫情報抽出処理でエラー\n{e}')
                 continue
