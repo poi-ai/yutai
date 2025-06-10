@@ -292,8 +292,8 @@ class Steal(Main):
                     time.sleep(3)
                 # リミットがかかっていない場合
                 else:
-                    # それでも1.5秒のマージンを取っておかないと過剰エラーになるので待つ
-                    time.sleep(1.5)
+                    # それでも1.8秒のマージンを取っておかないと過剰エラーになるので待つ
+                    time.sleep(1.8)
                     # 全銘柄で1度以上リクエストを投げたらリミッターをかける
                     if len(checked_list) == len(steal_list):
                         self.log.info('全銘柄で1度以上リクエストを投げたためリミッターをかけます')
@@ -419,6 +419,9 @@ class Steal(Main):
         else:
             # TODO エラー時の対応
             order_date = holiday.next_exchange_workday(now).strftime("%Y%m%d")
+
+        # 間隔を空けて過剰アクセスエラー回避
+        time.sleep(1.8)
 
         # 注文リクエストを送る
         result, soup = self.smbc.order.order(self.smbc_session, stock_code, num, token_id, url_id, order_date, order_price)
