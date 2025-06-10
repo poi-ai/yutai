@@ -27,6 +27,8 @@ class Steal(Main):
         self.multi_process = False
         # priority_steal_list.csvから取得するか(1: する、0: しない(=steal_list.csvから取得))
         self.get_priority_flag = False
+        # 過剰アクセス通知フラグ(1回目,10回目)
+        self.access_notice = False
 
         # LINE通知用トークンのチェック/設定
         self.line_token_check()
@@ -58,14 +60,11 @@ class Steal(Main):
             # LINE Messaging APIのトークンを設定
             if config.LINE_MESSAGING_API_TOKEN != '':
                 self.output.set_messaging_api_token(config.LINE_MESSAGING_API_TOKEN)
-            # ない場合はLINE Notifyのトークンを設定(~25/3まで)
-            elif config.LINE_NOTIFY_API_KEY != '':
-                self.output.set_notify_token(config.LINE_NOTIFY_API_KEY)
             else:
-                self.log.warning('config.pyにLINE Messaging APIあるいはNotifyのトークンが設定がされていません')
+                self.log.warning('config.pyにLINE Messaging APIのトークンが設定がされていません')
                 exit()
         except AttributeError as e:
-            self.log.error('config.pyにLINE Notifyトークン用の変数(LINE_NOTIFY_API_KEY)かMessaging APIトークン用の変数(LINE_MESSAGING_API_TOKEN)が定義されていません')
+            self.log.error('config.pyにMessaging APIトークン用の変数(LINE_MESSAGING_API_TOKEN)が定義されていません')
             self.log.error(str(e))
             exit()
 
@@ -242,9 +241,18 @@ class Steal(Main):
                             elif result == 6:
                                 # 過剰アクセスするとSMBCに怒られるので監視しとく
                                 self.excessive_access_count += 1
-                                if self.excessive_access_count == 1 or self.excessive_access_count == 5 or self.excessive_access_count >= 10:
-                                    self.output.line([f'steal.pyで過剰アクセスエラーが出ています {self.excessive_access_count}回目'])
+                                self.log.warning(f'steal.pyで過剰アクセスエラーが出ています {self.excessive_access_count}回目')
+
+                                # 1回目と10回目の場合のみLINE通知/処理の停止を行う
+                                if self.excessive_access_count == 1 or self.excessive_access_count >= 10:
+                                    # 1回目でまだLINE通知を行っていない場合は通知を送る
+                                    if self.access_notice == False:
+                                        self.output.line([f'steal.pyで過剰アクセスエラーが出ています {self.excessive_access_count}回目'])
+                                        self.access_notice = True
+
+                                    # 10回目の場合はLINE通知を送って処理を強制終了
                                     if self.excessive_access_count >= 10:
+                                        self.output.line([f'steal.pyで過剰アクセスエラーが出ています {self.excessive_access_count}回目'])
                                         self.log.error(f'10回以上過剰アクセスエラーが出ているため処理を強制終了します')
                                         self.output.line([f'10回以上過剰アクセスエラーが出ているため処理を強制終了します'])
                                         exit()
@@ -258,9 +266,18 @@ class Steal(Main):
                 elif result == 6:
                     # 過剰アクセスするとSMBCに怒られるので監視しとく
                     self.excessive_access_count += 1
-                    if self.excessive_access_count == 1 or self.excessive_access_count == 5 or self.excessive_access_count >= 10:
-                        self.output.line([f'steal.pyで過剰アクセスエラーが出ています {self.excessive_access_count}回目'])
+                    self.log.warning(f'steal.pyで過剰アクセスエラーが出ています {self.excessive_access_count}回目')
+
+                    # 1回目と10回目の場合のみLINE通知/処理の停止を行う
+                    if self.excessive_access_count == 1 or self.excessive_access_count >= 10:
+                        # 1回目でまだLINE通知を行っていない場合は通知を送る
+                        if self.access_notice == False:
+                            self.output.line([f'steal.pyで過剰アクセスエラーが出ています {self.excessive_access_count}回目'])
+                            self.access_notice = True
+
+                        # 10回目の場合はLINE通知を送って処理を強制終了
                         if self.excessive_access_count >= 10:
+                            self.output.line([f'steal.pyで過剰アクセスエラーが出ています {self.excessive_access_count}回目'])
                             self.log.error(f'10回以上過剰アクセスエラーが出ているため処理を強制終了します')
                             self.output.line([f'10回以上過剰アクセスエラーが出ているため処理を強制終了します'])
                             exit()
@@ -469,7 +486,7 @@ class Steal(Main):
                 self.log.error(error_message)
 
         # steal_listから削除し、ordered_listに追加する
-        result, error_message = self.ordered_csv_operate(stock_code, num, None)
+        result, error_message = self.ordered_csv_operate(stock_code, num, order_price)
         if result == False:
             # 既にエラーログを出している(Noneの)場合は出さない
             if error_message is not None:

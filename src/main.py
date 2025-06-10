@@ -413,7 +413,7 @@ class Main():
         unique_codes = set(all_codes)
 
         # 在庫数と合わせて保持できるように連想配列に書き換える
-        mix_code_list = {code: None for code in unique_codes}
+        mix_code_list = {str(code): None for code in unique_codes}
 
         # ログイン
         self.log.info('SMBC日興証券ログイン開始')
@@ -565,14 +565,11 @@ class Main():
             # LINE Messaging APIのトークンを設定
             if config.LINE_MESSAGING_API_TOKEN != '':
                 self.output.set_messaging_api_token(config.LINE_MESSAGING_API_TOKEN)
-            # ない場合はLINE Notifyのトークンを設定(~25/3まで)
-            elif config.LINE_NOTIFY_API_KEY != '':
-                self.output.set_notify_token(config.LINE_NOTIFY_API_KEY)
             else:
-                self.log.warning('config.pyにLINE Messaging APIあるいはNotifyのトークンが設定がされていません')
+                self.log.warning('config.pyにLINE Messaging APIのトークンが設定がされていません')
                 exit()
         except AttributeError as e:
-            self.log.error('config.pyにLINE Notifyトークン用の変数(LINE_NOTIFY_API_KEY)かMessaging APIトークン用の変数(LINE_MESSAGING_API_TOKEN)が定義されていません')
+            self.log.error('config.pyにMessaging APIトークン用の変数(LINE_MESSAGING_API_TOKEN)が定義されていません')
             self.log.error(str(e))
             exit()
 
@@ -618,10 +615,10 @@ class Main():
             if config.LINE_MESSAGING_API_TOKEN != '':
                 self.output.set_messaging_api_token(config.LINE_MESSAGING_API_TOKEN)
             else:
-                self.log.warning('config.pyにLINE Messaging APIあるいはNotifyのトークンが設定がされていません')
+                self.log.warning('config.pyにLINE Messaging APIのトークンが設定がされていません')
                 exit()
         except AttributeError as e:
-            self.log.error('config.pyにLINE Notifyトークン用の変数(LINE_NOTIFY_API_KEY)が定義されていません')
+            self.log.error('config.pyにMessaging APIトークン用の変数(LINE_MESSAGING_API_TOKEN)が定義されていません')
             self.log.error(str(e))
             exit()
 
@@ -736,21 +733,37 @@ class Main():
             return True
 
         zaiko_exist_list = []
+        zaiko_exist_history_list = []
         no_zaiko_list = []
 
         # 在庫の有無で別のリストに追加 TODO いずれ優先フラグを立てる
         for steal in steal_list:
             try:
-                zaiko = zaiko_info[steal[0]]['stock_num']
+                print(zaiko_info)
+                print(steal)
+                target_stock_code = str(steal[0])
+                # 取得対象の在庫情報を持っているかのチェック
+                if target_stock_code not in zaiko_info:
+                    self.log.warning(f'在庫情報に銘柄コード: {target_stock_code}が存在しません')
+                    no_zaiko_list.append(steal)
+                    continue
+
+                # キーstock_numの値を持っている(=取引可能銘柄)かをチェック
+                if zaiko_info[target_stock_code] is None:
+                    no_zaiko_list.append(steal)
+                    continue
+                else:
+                    zaiko = zaiko_info[target_stock_code]['stock_num']
             except Exception as e:
                 self.log.error(f'在庫情報抽出処理でエラー\n{e}')
                 continue
 
             if zaiko != None:
-                # 在庫があり、steal_listの在庫数以上の場合
+                # 在庫があり、在庫数がsteal_listに記載した確保したい数以上の場合
                 if zaiko > 0 and int(zaiko) >= int(steal[1]):
                     #steal[4] = 1
                     zaiko_exist_list.append(steal)
+                    zaiko_exist_history_list.append(steal + [self.log.today])
                 else:
                     #steal[4] = 0
                     no_zaiko_list.append(steal)
@@ -764,12 +777,24 @@ class Main():
         ### sort_zaiko_list = zaiko_exist_list + no_zaiko_list
 
         # CSVで出力を行い、実行結果を返り値として返す
-        return self.output.output_csv(data = sort_zaiko_list,
-                                      file_name = 'priority_steal_list.csv',
-                                      add_header = True,
-                                      add_time = False,
-                                      data_folder = False,
-                                      mode = 'w')
+        # まずはsteal.pyで拾うためのCSVを出力
+        result = self.output.output_csv(data = sort_zaiko_list,
+                                        file_name = 'priority_steal_list.csv',
+                                        add_header = True,
+                                        add_time = False,
+                                        data_folder = False,
+                                        mode = 'w')
+        # 次に履歴用のCSVを出力
+        result2 = self.output.output_csv(data = sort_zaiko_list,
+                                        file_name = f'priority_steal_list_history_{self.log.today_ym}.csv',
+                                        add_header = True,
+                                        add_time = False,
+                                        data_folder = False,
+                                        mode = 'a')
+
+        if result == False or result2 == False:
+            return False
+        return True
 
     def line_send(self, notice_message):
         '''
@@ -800,20 +825,8 @@ class Main():
                 result, error_message = self.output.send_messaging_api(fukidashi_list)
                 if result == False:
                     self.log.error(error_message)
-
-        # LINE Notifyを使う場合
-        elif config.LINE_NOTIFY_API_KEY != '':
-            # 1000文字を超える場合は分割(念のため990文字ごとに)
-            notice_message_list = [notice_message[i:i + 990] for i in range(0, len(notice_message), 990)]
-
-            # 分割したものを一つずつ送信
-            for message in notice_message_list:
-                # LINEで送信
-                result, error_message = self.output.send_notify(message)
-                if result == False:
-                    self.log.error(error_message)
         else:
-            self.log.error(f'LINE Messaging API、Notifyどちらのトークンも設定されていないためメッセージが送信できません\n送信メッセージ: {notice_message}')
+            self.log.error(f'LINE Messaging APIのトークンが設定されていないためメッセージが送信できません\n送信メッセージ: {notice_message}')
 
     def smbc_login(self):
         '''
