@@ -763,7 +763,7 @@ class Main():
                 if zaiko > 0 and int(zaiko) >= int(steal[1]):
                     #steal[4] = 1
                     zaiko_exist_list.append(steal)
-                    zaiko_exist_history_list.append(steal + [self.log.today])
+                    zaiko_exist_history_list.append([self.log.today, steal[0], steal[1], zaiko, steal[2]])
                 else:
                     #steal[4] = 0
                     no_zaiko_list.append(steal)
@@ -785,7 +785,7 @@ class Main():
                                         data_folder = False,
                                         mode = 'w')
         # 次に履歴用のCSVを出力
-        result2 = self.output.output_csv(data = sort_zaiko_list,
+        result2 = self.output.output_csv(data = zaiko_exist_history_list,
                                         file_name = f'priority_steal_list_history_{self.log.today_ym}.csv',
                                         add_header = True,
                                         add_time = False,
