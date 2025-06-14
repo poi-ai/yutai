@@ -221,8 +221,9 @@ class Steal(Main):
                                 self.smbc_session = self.smbc_login()
                                 self.log.info('SMBC日興証券再ログイン終了')
 
-                            # メンテ中なら0.5秒待機
+                            # メンテ中なら2秒待機
                             elif result == 3:
+                                time.sleep(2)
                                 continue
 
                             # 在庫不足なら正常に接続はできているのでループから抜ける
