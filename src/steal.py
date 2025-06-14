@@ -27,6 +27,8 @@ class Steal(Main):
         self.multi_process = False
         # priority_steal_list.csvから取得するか(1: する、0: しない(=steal_list.csvから取得))
         self.get_priority_flag = False
+        # 過剰アクセス通知フラグ(1回目,10回目)
+        self.access_notice = False
 
         # LINE通知用トークンのチェック/設定
         self.line_token_check()
@@ -58,14 +60,11 @@ class Steal(Main):
             # LINE Messaging APIのトークンを設定
             if config.LINE_MESSAGING_API_TOKEN != '':
                 self.output.set_messaging_api_token(config.LINE_MESSAGING_API_TOKEN)
-            # ない場合はLINE Notifyのトークンを設定(~25/3まで)
-            elif config.LINE_NOTIFY_API_KEY != '':
-                self.output.set_notify_token(config.LINE_NOTIFY_API_KEY)
             else:
-                self.log.warning('config.pyにLINE Messaging APIあるいはNotifyのトークンが設定がされていません')
+                self.log.warning('config.pyにLINE Messaging APIのトークンが設定がされていません')
                 exit()
         except AttributeError as e:
-            self.log.error('config.pyにLINE Notifyトークン用の変数(LINE_NOTIFY_API_KEY)かMessaging APIトークン用の変数(LINE_MESSAGING_API_TOKEN)が定義されていません')
+            self.log.error('config.pyにMessaging APIトークン用の変数(LINE_MESSAGING_API_TOKEN)が定義されていません')
             self.log.error(str(e))
             exit()
 
@@ -222,8 +221,9 @@ class Steal(Main):
                                 self.smbc_session = self.smbc_login()
                                 self.log.info('SMBC日興証券再ログイン終了')
 
-                            # メンテ中なら0.5秒待機
+                            # メンテ中なら2秒待機
                             elif result == 3:
+                                time.sleep(2)
                                 continue
 
                             # 在庫不足なら正常に接続はできているのでループから抜ける
@@ -238,16 +238,26 @@ class Steal(Main):
                                 self.log.info('SMBC日興証券再ログイン終了')
                                 login_flag = True
 
-                            # 過剰アクセスエラーの場合は0.5秒待機
+                            # 過剰アクセスエラーの場合は2秒待機
                             elif result == 6:
                                 # 過剰アクセスするとSMBCに怒られるので監視しとく
                                 self.excessive_access_count += 1
-                                if self.excessive_access_count == 1 or self.excessive_access_count == 5 or self.excessive_access_count >= 10:
-                                    self.output.line([f'steal.pyで過剰アクセスエラーが出ています {self.excessive_access_count}回目'])
+                                self.log.warning(f'steal.pyで過剰アクセスエラーが出ています {self.excessive_access_count}回目')
+
+                                # 1回目と10回目の場合のみLINE通知/処理の停止を行う
+                                if self.excessive_access_count == 1 or self.excessive_access_count >= 10:
+                                    # 1回目でまだLINE通知を行っていない場合は通知を送る
+                                    if self.access_notice == False:
+                                        self.output.line([f'steal.pyで過剰アクセスエラーが出ています {self.excessive_access_count}回目'])
+                                        self.access_notice = True
+
+                                    # 10回目の場合はLINE通知を送って処理を強制終了
                                     if self.excessive_access_count >= 10:
+                                        self.output.line([f'steal.pyで過剰アクセスエラーが出ています {self.excessive_access_count}回目'])
                                         self.log.error(f'10回以上過剰アクセスエラーが出ているため処理を強制終了します')
                                         self.output.line([f'10回以上過剰アクセスエラーが出ているため処理を強制終了します'])
                                         exit()
+                                time.sleep(2)
                                 continue
 
                             # 他,続行不可能エラー(-1)の場合などは一旦ループを抜けてループ外で処理させる
@@ -258,9 +268,18 @@ class Steal(Main):
                 elif result == 6:
                     # 過剰アクセスするとSMBCに怒られるので監視しとく
                     self.excessive_access_count += 1
-                    if self.excessive_access_count == 1 or self.excessive_access_count == 5 or self.excessive_access_count >= 10:
-                        self.output.line([f'steal.pyで過剰アクセスエラーが出ています {self.excessive_access_count}回目'])
+                    self.log.warning(f'steal.pyで過剰アクセスエラーが出ています {self.excessive_access_count}回目')
+
+                    # 1回目と10回目の場合のみLINE通知/処理の停止を行う
+                    if self.excessive_access_count == 1 or self.excessive_access_count >= 10:
+                        # 1回目でまだLINE通知を行っていない場合は通知を送る
+                        if self.access_notice == False:
+                            self.output.line([f'steal.pyで過剰アクセスエラーが出ています {self.excessive_access_count}回目'])
+                            self.access_notice = True
+
+                        # 10回目の場合はLINE通知を送って処理を強制終了
                         if self.excessive_access_count >= 10:
+                            self.output.line([f'steal.pyで過剰アクセスエラーが出ています {self.excessive_access_count}回目'])
                             self.log.error(f'10回以上過剰アクセスエラーが出ているため処理を強制終了します')
                             self.output.line([f'10回以上過剰アクセスエラーが出ているため処理を強制終了します'])
                             exit()
@@ -275,8 +294,8 @@ class Steal(Main):
                     time.sleep(3)
                 # リミットがかかっていない場合
                 else:
-                    # それでも1.5秒のマージンを取っておかないと過剰エラーになるので待つ
-                    time.sleep(1.5)
+                    # それでも2秒のマージンを取っておかないと過剰エラーになるので待つ
+                    time.sleep(2)
                     # 全銘柄で1度以上リクエストを投げたらリミッターをかける
                     if len(checked_list) == len(steal_list):
                         self.log.info('全銘柄で1度以上リクエストを投げたためリミッターをかけます')
@@ -403,6 +422,9 @@ class Steal(Main):
             # TODO エラー時の対応
             order_date = holiday.next_exchange_workday(now).strftime("%Y%m%d")
 
+        # 間隔を空けて過剰アクセスエラー回避
+        time.sleep(1.8)
+
         # 注文リクエストを送る
         result, soup = self.smbc.order.order(self.smbc_session, stock_code, num, token_id, url_id, order_date, order_price)
         if result == False:
@@ -469,7 +491,7 @@ class Steal(Main):
                 self.log.error(error_message)
 
         # steal_listから削除し、ordered_listに追加する
-        result, error_message = self.ordered_csv_operate(stock_code, num, None)
+        result, error_message = self.ordered_csv_operate(stock_code, num, order_price)
         if result == False:
             # 既にエラーログを出している(Noneの)場合は出さない
             if error_message is not None:
@@ -528,9 +550,9 @@ class Steal(Main):
         if (now.hour == 15 and now.minute >= 30) or now.hour == 16 or (now.hour == 17 and now.minute < 29):
             target_time = datetime(now.year, now.month, now.day, 17, 29)
 
-        # 17:29なら17:30:03まで待つ
+        # 17:29なら17:30:05まで待つ
         elif now.hour == 17 and now.minute == 29:
-            target_time = datetime(now.year, now.month, now.day, 17, 30, 3)
+            target_time = datetime(now.year, now.month, now.day, 17, 30, 5)
             # priority_listから取得した(=在庫補充)銘柄がある場合のみ争奪戦用にリミッター解除
             if self.get_priority_flag:
                 self.log.info('priority_steal_list.csvから取得した銘柄があるためリミッターを解除します')
